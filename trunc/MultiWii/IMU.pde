@@ -174,12 +174,13 @@ void getEstimatedAttitude(){
 /* Set the Gyro Weight for Gyro/Acc complementary filter */
 /* Increasing this value would reduce and delay Acc influence on the output of the filter*/
 /* Default WMC value: 300*/
-#define GYR_CMPF_FACTOR 310.0f
+#define GYR_CMPF_FACTOR 500.0f
 
 /* Set the Gyro Weight for Gyro/Magnetometer complementary filter */
 /* Increasing this value would reduce and delay Magnetometer influence on the output of the filter*/
 /* Default WMC value: n/a*/
 #define GYR_CMPFM_FACTOR 200.0f
+//#define GYR_CMPFM_FACTOR 200000.0f
 
 //****** end of advanced users settings *************
 
