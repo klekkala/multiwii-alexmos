@@ -170,14 +170,16 @@ void GYRO_Common() {
       gyroADC[axis]=0;
       gyroZero[axis]=0;
       if (calibratingG == 1) {
-        gyroZero[axis]=g[axis]/400;
+		    // alexmos: more zero precision
+        gyroZero[axis]=g[axis]/40;
         blinkLED(10,15,1+3*nunchuk);
       }
     }
     calibratingG--;
   }
   for (axis = 0; axis < 3; axis++) {
-    gyroADC[axis]  -= gyroZero[axis];
+    // alexmos: more zero precision
+    gyroADC[axis] = ((int32_t)gyroADC[axis] * 10 - gyroZero[axis])/10;
     //anti gyro glitch, limit the variation between two consecutive readings
     gyroADC[axis] = constrain(gyroADC[axis],previousGyroADC[axis]-800,previousGyroADC[axis]+800);
     previousGyroADC[axis] = gyroADC[axis];

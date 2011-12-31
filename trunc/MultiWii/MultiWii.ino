@@ -104,8 +104,13 @@ static uint8_t telemetry_auto = 0;
 // ******************
 // rc functions
 // ******************
-#define MINCHECK 1100
-#define MAXCHECK 1900
+#if !defined(MINCHECK)
+	#define MINCHECK 1100
+#endif
+#if !defined(MAXCHECK)
+	#define MAXCHECK 1900
+#endif
+
 
 volatile int16_t failsafeCnt = 0;
 static int16_t failsafeEvents = 0;
@@ -203,7 +208,28 @@ void annexCode() { //this code is excetuted at each loop and won't interfere wit
     dynD8[axis] = (uint16_t)D8[axis]*prop1/100;
     if (rcData[axis]<MIDRC) rcCommand[axis] = -rcCommand[axis];
   }
-  rcCommand[THROTTLE] = MINTHROTTLE + (int32_t)(MAXTHROTTLE-MINTHROTTLE)* (rcData[THROTTLE]-MINCHECK)/(2000-MINCHECK);
+
+  /* alexmos: Throttle expo curve */
+  #ifdef THROTTLE_EXPO
+    uint16_t tmp;
+    /* map x=[MINCHECK..SHIFT_HOVER..MAXCHECK] to [0..500] (expo without rcRate) */
+    if(rcData[THROTTLE] < SHIFT_HOVER) {
+      tmp = 500 - (uint32_t)(max(rcData[THROTTLE], MINCHECK) - MINCHECK)*500/(SHIFT_HOVER - MINCHECK);
+    } else {
+      tmp = (uint32_t)(min(rcData[THROTTLE], MAXCHECK) - SHIFT_HOVER)*500/(MAXCHECK - SHIFT_HOVER);
+    }
+    uint16_t tmp2 = tmp/100;
+    uint16_t y = (lookupRX[tmp2]*50 + (tmp-tmp2*100) * (lookupRX[tmp2+1]-lookupRX[tmp2]) / 2 ) / rcRate8;
+
+    /* map y=[0..500] to [MINTHROTTLE..THROTTLE_HOVER..MAXTHROTTLE] */
+    if (rcData[THROTTLE] < SHIFT_HOVER) {
+      rcCommand[THROTTLE] = MINTHROTTLE + (uint32_t)(500-y) * (THROTTLE_HOVER - MINTHROTTLE) / 500;
+    } else {
+      rcCommand[THROTTLE] = THROTTLE_HOVER + (uint32_t) y * (MAXTHROTTLE - THROTTLE_HOVER) / 500;
+    }
+  #else
+	  rcCommand[THROTTLE] = MINTHROTTLE + (int32_t)(MAXTHROTTLE-MINTHROTTLE)* (rcData[THROTTLE]-MINCHECK)/(2000-MINCHECK);
+	#endif
 
   if(headFreeMode) {
     float radDiff = (heading - headFreeModeHold) * 0.0174533f; // where PI/180 ~= 0.0174533
@@ -331,6 +357,8 @@ void setup() {
   checkFirstTime();
   configureReceiver();
   initSensors();
+  //alexmos: wait 3 seconds before start calibrating
+  delay(3000);
   previousTime = micros();
   #if defined(GIMBAL)
    calibratingA = 400;

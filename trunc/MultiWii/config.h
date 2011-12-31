@@ -31,7 +31,7 @@
 //#define I2C_SPEED 400000L   //400kHz fast mode, it works only with some WMP clones
 
 //enable internal I2C pull ups
-//#define INTERNAL_I2C_PULLUPS
+#define INTERNAL_I2C_PULLUPS
 
 
 //****** advanced users settings   *************
@@ -39,7 +39,7 @@
 //#define LED_RING
 
 /* This option should be uncommented if ACC Z is accurate enough when motors are running*/
-//#define TRUSTED_ACCZ
+#define TRUSTED_ACCZ
 
 /* PIN A0 and A1 instead of PIN D5 & D6 for 6 motors config and promini config
    This mod allow the use of a standard receiver on a pro mini
@@ -64,8 +64,8 @@
    the GPS must be configured to output NMEA sentences (which is generally the default conf for most GPS devices)
 */
 //#define GPS
-#define GPS_SERIAL 2 // should be 2 for flyduino v2. It's the serial port number on arduino MEGA
-#define GPS_BAUD   115200
+//#define GPS_SERIAL 2 // should be 2 for flyduino v2. It's the serial port number on arduino MEGA
+//#define GPS_BAUD   115200
 //#define GPS_BAUD   9600
 
 /* Pseudo-derivative conrtroller for level mode (experimental)
@@ -74,7 +74,7 @@
 
 /* introduce a deadband around the stick center
    Must be greater than zero, comment if you dont want a deadband on roll, pitch and yaw */
-//#define DEADBAND 6
+#define DEADBAND 10
 
 /* if you use a specific sensor board:
    please submit any correction to this list.
@@ -90,7 +90,7 @@
 //#define PIPO            // 9DOF board from erazz
 //#define QUADRINO        // full FC board 9DOF+baro board from witespy  with BMP085 baro     <- confirmed by Alex
 //#define QUADRINO_ZOOM   // full FC board 9DOF+baro board from witespy  second edition       <- confirmed by Alex
-//#define ALLINONE        // full FC board or standalone 9DOF+baro board from CSG_EU
+#define ALLINONE        // full FC board or standalone 9DOF+baro board from CSG_EU
 //#define AEROQUADSHIELDv2
 //#define ATAVRSBIN1      // Atmel 9DOF (Contribution by EOSBandi). requires 3.3V power.
 //#define SIRIUS          // Sirius Navigator IMU                                             <- confirmed by Alex
@@ -141,7 +141,7 @@
 /* The following lines apply only for specific receiver with only one PPM sum signal, on digital PIN 2
    IF YOUR RECEIVER IS NOT CONCERNED, DON'T UNCOMMENT ANYTHING. Note this is mandatory for a Y6 setup on a promini
    Select the right line depending on your radio brand. Feel free to modify the order in your PPM order is different */
-//#define SERIAL_SUM_PPM         PITCH,YAW,THROTTLE,ROLL,AUX1,AUX2,AUX3,AUX4 //For Graupner/Spektrum
+#define SERIAL_SUM_PPM         PITCH,YAW,THROTTLE,ROLL,AUX1,AUX2,AUX3,AUX4 //For Graupner/Spektrum
 //#define SERIAL_SUM_PPM         ROLL,PITCH,THROTTLE,YAW,AUX1,AUX2,AUX3,AUX4 //For Robe/Hitec/Futaba
 //#define SERIAL_SUM_PPM         PITCH,ROLL,THROTTLE,YAW,AUX1,AUX2,AUX3,AUX4 //For some Hitec/Sanwa/Others
 
@@ -177,7 +177,7 @@
 #define FAILSAFE                                  // Alex: comment this line if you want to deactivate the failsafe function
 #define FAILSAVE_DELAY     10                     // Guard time for failsafe activation after signal lost. 1 step = 0.1sec - 1sec in example
 #define FAILSAVE_OFF_DELAY 200                    // Time for Landing before motors stop in 0.1sec. 1 step = 0.1sec - 20sec in example
-#define FAILSAVE_THR0TTLE  (MINTHROTTLE + 200)    // Throttle level used for landing - may be relative to MINTHROTTLE - as in this case
+#define FAILSAVE_THR0TTLE  (SHIFT_HOVER-100)    // Throttle level used for landing - may be relative to MINTHROTTLE - as in this case
 
 /* EXPERIMENTAL !!
   contribution from Luis Correia
@@ -189,7 +189,7 @@
 /* The following lines apply only for a pitch/roll tilt stabilization system
    On promini board, it is not compatible with config with 6 motors or more
    Uncomment the first line to activate it */
-//#define SERVO_TILT
+#define SERVO_TILT
 #define TILT_PITCH_MIN    1020    //servo travel min, don't set it below 1020
 #define TILT_PITCH_MAX    2000    //servo travel max, max value=2000
 #define TILT_PITCH_MIDDLE 1500    //servo neutral value
@@ -209,7 +209,7 @@
    with R1=33k and R2=51k
    vbat = [0;1023]*16/VBATSCALE */
 #define VBAT              // comment this line to suppress the vbat code
-#define VBATSCALE     131 // change this value if readed Battery voltage is different than real voltage
+#define VBATSCALE     124 // change this value if readed Battery voltage is different than real voltage
 #define VBATLEVEL1_3S 107 // 10,7V
 #define VBATLEVEL2_3S 103 // 10,3V
 #define VBATLEVEL3_3S 99  // 9.9V
@@ -225,14 +225,14 @@
 
 /* this is the maximum value for the ESCs at full power
    this value can be increased up to 2000 */
-#define MAXTHROTTLE 1850
+#define MAXTHROTTLE 1950
 
 /* This is the speed of the serial interface. 115200 kbit/s is the best option for a USB connection.*/
 #define SERIAL_COM_SPEED 115200
 
 /* In order to save space, it's possibile to desactivate the LCD configuration functions
    comment this line only if you don't plan to used a LCD */
-#define LCD_CONF
+//#define LCD_CONF
 /* Use this to trigger telemetry without a TX */
 //#define LCD_CONF_DEBUG
 
@@ -369,13 +369,32 @@
 //#define ACC_ORIENTATION(X, Y, Z)  {accADC[ROLL]  =  Y; accADC[PITCH]  = -X; accADC[YAW]  = Z;}
 //#define GYRO_ORIENTATION(X, Y, Z) {gyroADC[ROLL] = -Y; gyroADC[PITCH] =  X; gyroADC[YAW] = Z;}
 //#define MAG_ORIENTATION(X, Y, Z)  {magADC[ROLL]  = X; magADC[PITCH]  = Y; magADC[YAW]  = Z;}
-
+#define BMA180_ADDRESS 0x82
+#define ITG3200_ADDRESS 0XD0
  
 /* frequenies for rare cyclic actions in the main loop, depend on cycle time! */
 /* time base is main loop cycle time - a value of 6 means to trigger the action every 6th run through the main loop */
 /* example: with cycle time of approx 3ms, do action every 6*3ms=18ms */
 #define LCD_TELEMETRY_FREQ 41       // to send telemetry data over serial 41 <=> 120ms <=> 8Hz
 #define LCD_TELEMETRY_AUTO_FREQ 665 // to step to next telemetry page 666 <=> 2s
+
+
+
+
+
+/* You can enable throttle expo curve near hover point, affected by 'EXPO' AND 'RC RATE' setting in GUI */
+/* It is recomended to test it in GUI with your receiver before fly */
+#define THROTTLE_EXPO
+/* Throttle value just before copter start flying (expo zero point will be here) */
+/* Should be measured in GUI with full copter load. */
+#define THROTTLE_HOVER 1400
+/* You can shift hover point to the begining of the throttle range to use more of remaining range to fly */
+/* SHIFT_HOVER=THROTTLE_HOVER - no shift */
+#define SHIFT_HOVER THROTTLE_HOVER
+
+#define MINCHECK 1150
+#define MAXCHECK 1850
+
 /**************************************/
 /****END OF CONFIGURABLE PARAMETERS****/
 /**************************************/
