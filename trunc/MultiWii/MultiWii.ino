@@ -346,7 +346,7 @@ void annexCode() { //this code is excetuted at each loop and won't interfere wit
 
 
 void setup() {
-  SerialOpen(0,115200);
+	SerialOpen(0,115200);
   LEDPIN_PINMODE;
   POWERPIN_PINMODE;
   BUZZERPIN_PINMODE;
