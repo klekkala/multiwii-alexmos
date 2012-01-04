@@ -42,12 +42,12 @@ void serialCom() {
       break;    
     case 'C': // button C press
     case '3':
-           if (telemetry==3) telemetry = 0; else { telemetry = 3; LCDclear(); 
+           if (telemetry==3) { telemetry = 0; 
            #ifdef LOG_VALUES
-              cycleTimeMax = 0;
+                 cycleTimeMax = 0; // reset min/max on transition on->off
               cycleTimeMin = 65535;
            #endif
-           }
+           }else { telemetry = 3; LCDclear(); }
       break;    
     case 'D': // button D press
     case '4':
@@ -93,7 +93,12 @@ void serialCom() {
       for(i=0;i<8;i++) serialize16(rcData[i]);
       serialize8(nunchuk|ACC<<1|BARO<<2|MAG<<3|GPSPRESENT<<4);
       serialize8(accMode|baroMode<<1|magMode<<2|(GPSModeHome|GPSModeHold)<<3);
+      #if defined(LOG_VALUES)
+         serialize16(cycleTimeMax);
+         cycleTimeMax = 0;
+      #else
       serialize16(cycleTime);
+      #endif
       for(i=0;i<2;i++) serialize16(angle[i]);
       serialize8(MULTITYPE);
       for(i=0;i<PIDITEMS;i++) {serialize8(P8[i]);serialize8(I8[i]);serialize8(D8[i]);}
