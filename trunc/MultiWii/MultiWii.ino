@@ -302,7 +302,8 @@ void annexCode() { //this code is excetuted at each loop and won't interfere wit
     LEDPIN_TOGGLE;
   } else {
     if (calibratedACC == 1) {LEDPIN_OFF;}
-    if (armed) {LEDPIN_ON;}
+    // alexmos: blink LED when bipping
+    if (armed && !buzzerState) {LEDPIN_ON;}
   }
 
   #if defined(LED_RING)

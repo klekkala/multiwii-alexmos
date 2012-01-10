@@ -95,7 +95,7 @@ void computeIMU () {
 /* Increasing this value would reduce Magnetometer noise (not visible in GUI), but would increase Magnetometer lag time*/
 /* Comment this if  you do not want filter at all.*/
 /* Default WMC value: n/a*/
-//#define MG_LPF_FACTOR 4
+#define MG_LPF_FACTOR 4
 
 /* Set the Gyro Weight for Gyro/Acc complementary filter */
 /* Increasing this value would reduce and delay Acc influence on the output of the filter*/
@@ -105,8 +105,8 @@ void computeIMU () {
 /* Set the Gyro Weight for Gyro/Magnetometer complementary filter */
 /* Increasing this value would reduce and delay Magnetometer influence on the output of the filter*/
 /* Default WMC value: n/a*/
-#define GYR_CMPFM_FACTOR 200.0f
-//#define GYR_CMPFM_FACTOR 200000.0f
+#define GYR_CMPFM_FACTOR 500.0f
+//#define GYR_CMPFM_FACTOR 0.1f // DEBUG: test heading by MAG only (without gyro)
 
 //****** end of advanced users settings *************
 
