@@ -74,7 +74,7 @@
 
 /* introduce a deadband around the stick center
    Must be greater than zero, comment if you dont want a deadband on roll, pitch and yaw */
-#define DEADBAND 10
+#define DEADBAND 30
 
 /* if you use a specific sensor board:
    please submit any correction to this list.
@@ -91,6 +91,7 @@
 //#define QUADRINO        // full FC board 9DOF+baro board from witespy  with BMP085 baro     <- confirmed by Alex
 //#define QUADRINO_ZOOM   // full FC board 9DOF+baro board from witespy  second edition       <- confirmed by Alex
 #define ALLINONE        // full FC board or standalone 9DOF+baro board from CSG_EU
+#define BMA180_ADDRESS 0x82
 //#define AEROQUADSHIELDv2
 //#define ATAVRSBIN1      // Atmel 9DOF (Contribution by EOSBandi). requires 3.3V power.
 //#define SIRIUS          // Sirius Navigator IMU                                             <- confirmed by Alex
@@ -142,7 +143,8 @@
    IF YOUR RECEIVER IS NOT CONCERNED, DON'T UNCOMMENT ANYTHING. Note this is mandatory for a Y6 setup on a promini
    Select the right line depending on your radio brand. Feel free to modify the order in your PPM order is different */
 //#define SERIAL_SUM_PPM         THROTTLE,YAW,ROLL,PITCH,AUX1,AUX2,AUX3,AUX4 //For Graupner/Spektrum
-#define SERIAL_SUM_PPM         ROLL,PITCH,THROTTLE,YAW,AUX1,AUX2,AUX3,AUX4 //HK T6A
+//#define SERIAL_SUM_PPM         ROLL,PITCH,THROTTLE,YAW,AUX1,AUX2,AUX3,AUX4 //HK T6A
+#define SERIAL_SUM_PPM         ROLL,PITCH,THROTTLE,YAW,AUX1,AUX3,AUX2,AUX4 //HK T6A with AUX2 -> AUX3 (camera pitch control)
 //#define SERIAL_SUM_PPM         PITCH,ROLL,THROTTLE,YAW,AUX1,AUX2,AUX3,AUX4 //For some Hitec/Sanwa/Others
 
 /* The following lines apply only for Spektrum Satellite Receiver
@@ -366,8 +368,6 @@
 //#define ACC_ORIENTATION(X, Y, Z)  {accADC[ROLL]  =  Y; accADC[PITCH]  = -X; accADC[YAW]  = Z;}
 //#define GYRO_ORIENTATION(X, Y, Z) {gyroADC[ROLL] = -Y; gyroADC[PITCH] =  X; gyroADC[YAW] = Z;}
 //#define MAG_ORIENTATION(X, Y, Z)  {magADC[ROLL]  = X; magADC[PITCH]  = Y; magADC[YAW]  = Z;}
-#define BMA180_ADDRESS 0x82
-#define ITG3200_ADDRESS 0XD0
  
 /* frequenies for rare cyclic actions in the main loop, depend on cycle time! */
 /* time base is main loop cycle time - a value of 6 means to trigger the action every 6th run through the main loop */
@@ -386,7 +386,7 @@
 #define THROTTLE_EXPO
 /* Throttle value just before copter start flying (expo zero point will be here) */
 /* Should be measured in GUI with full copter load. */
-#define THROTTLE_HOVER 1400
+#define THROTTLE_HOVER 1700
 /* You can shift hover point to the begining of the throttle range to use more of remaining range to fly */
 /* SHIFT_HOVER=THROTTLE_HOVER - no shift */
 #define SHIFT_HOVER THROTTLE_HOVER
