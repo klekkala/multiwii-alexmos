@@ -364,6 +364,11 @@ void setup() {
   checkFirstTime();
   configureReceiver();
   initSensors();
+  
+  //alexmos: init sonar
+  #if defined(SONAR)
+  	initSonar();
+  #endif
   //alexmos: wait 3 seconds before start calibrating
   delay(3000);
   previousTime = micros();
@@ -675,5 +680,10 @@ void loop () {
         }
       }
     }
+  #endif
+  
+  // alexmos: activate sonar measure
+  #ifdef SONAR
+  	sonarTrigger();
   #endif
 }

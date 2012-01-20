@@ -394,6 +394,12 @@
 #define MINCHECK 1150
 #define MAXCHECK 1850
 
+/* Use ultrasonic sensor for ALT HOLD. (see Sonar.pde for details) */
+#define SONAR
+#define SONAR_PING A2 // PIN that trigger measure
+#define SONAR_READ 12 // PIN to read response pulse, 12 or 8
+
+
 /**************************************/
 /****END OF CONFIGURABLE PARAMETERS****/
 /**************************************/
