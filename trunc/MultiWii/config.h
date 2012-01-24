@@ -24,11 +24,11 @@
 //#define OCTOFLATX
 //#define FLYING_WING //experimental
 
-#define YAW_DIRECTION 1 // if you want to reverse the yaw correction direction
-//#define YAW_DIRECTION -1
+//#define YAW_DIRECTION 1 // if you want to reverse the yaw correction direction
+#define YAW_DIRECTION -1
 
-#define I2C_SPEED 100000L     //100kHz normal mode, this value must be used for a genuine WMP
-//#define I2C_SPEED 400000L   //400kHz fast mode, it works only with some WMP clones
+//#define I2C_SPEED 400000L     //100kHz normal mode, this value must be used for a genuine WMP
+#define I2C_SPEED 400000L   //400kHz fast mode, it works only with some WMP clones
 
 //enable internal I2C pull ups
 #define INTERNAL_I2C_PULLUPS
@@ -386,7 +386,7 @@
 #define THROTTLE_EXPO
 /* Throttle value just before copter start flying (expo zero point will be here) */
 /* Should be measured in GUI with full copter load. */
-#define THROTTLE_HOVER 1700
+#define THROTTLE_HOVER 1550
 /* You can shift hover point to the begining of the throttle range to use more of remaining range to fly */
 /* SHIFT_HOVER=THROTTLE_HOVER - no shift */
 #define SHIFT_HOVER THROTTLE_HOVER
@@ -398,7 +398,7 @@
 #define SONAR
 #define SONAR_PING A2 // PIN that trigger measure
 #define SONAR_READ 12 // PIN to read response pulse, 12 or 8
-
+#define SONAR_DEBUG // output some data to GUI (replacing MAG and debug variables)
 
 /**************************************/
 /****END OF CONFIGURABLE PARAMETERS****/

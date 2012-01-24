@@ -1,5 +1,6 @@
 /**************************************************************
 Sonar sensor HC-SR04 support (by alexmos)
+http://www.google.ru/url?sa=t&rct=j&q=HC-SR04&source=web&cd=1&ved=0CCUQFjAA&url=http%3A%2F%2Fjaktek.com%2Fwp-content%2Fuploads%2F2011%2F12%2FHC-SR04.pdf&ei=19gdT7GPHKLk4QShyciWDQ&usg=AFQjCNGvwkkPlRVU3B2v7KfGMKRTPYZ4hw
 
 From datasheet:
 	"Adopt IO trigger through supplying at least 10us sequence of high level signal.
@@ -20,26 +21,30 @@ Note:
 -Implemented only for PROMINI board: I have only this one, sorry.
 ***************************************************************/
 
-
-
 #ifdef SONAR
 
-/* Maximum measured distance, cm */
-#define SONAR_MAX_DISTANCE 500
+/* Maximum measured distance, mm */
+#define SONAR_MAX_DISTANCE 4500
 
-/* Maximum measure time, micros */
-#define SONAR_MAX_TIME 30000  
+/* Maximum measure time, ms 
+* If no signal received after this time, start next measure */
+#define SONAR_MAX_TIME 300
 
-/* Maximum number of errors when sonarDistance should be treated as 'undefined' */
-#define SONAR_MAX_ERRORS 10
+/* Pause between measures, ms. 
+* (recomended 50ms to skip echo from previous measure) */
+#define SONAR_WAIT_TIME 50
 
-/* LPF factor (integer >=0). Bigger values means less noise (and less reaction speed).
+/* If measuring takes more than this time, result treated as error. (ms) */
+/* (I have added this for my buggy HC-SR04 sensor) */
+#define SONAR_ERROR_TIME 150
+
+/* Maximum number of errors (i.e. 'sonarError' variable upper limit) */
+#define SONAR_ERROR_MAX 10
+
+
+/* LPF factor (integer 1..10). Bigger values means less noise (and less reaction speed).
 	Comment it to disable LPF at all */
-#define SONAR_LPF_FACTOR 1
-
-/* LPF velocity factor (integer >=1). Bigger values means less system inertion (velocity does not taked in to account)
-  Works only with SONAR_LPF_FACTOR > 0 */
-#define SONAR_LPF_VEL_FACTOR 1
+#define SONAR_LPF_FACTOR 5
 
 
 
@@ -53,18 +58,16 @@ Note:
 #endif
 
 
-
-/* Global variables holding current sensor state */
-volatile int16_t sonarDistance = 0; // distance, cm (0..SONAR_MAX_DISTANCE)
-volatile uint8_t sonarErrors = 0; // errors count (0..SONAR_MAX_ERRORS). Increased by 1 each time answer was missed.
-volatile uint16_t startTime = 0; // 0 - finished, >0 - in progress
-
+static uint16_t startTime = 0; // 0 - finished, >0 - in progress
+volatile uint8_t state = 0; // 0 - idle, 1 - measuring, 2 - pause before next measure
+volatile uint16_t sonarData = 0; // measured time, us
 
 // Configure pins and interrupt
 void initSonar() {
   pinMode(SONAR_PING, OUTPUT); 
   pinMode(SONAR_READ, INPUT); 
-  digitalWrite(SONAR_READ, HIGH); // enable pullups
+  digitalWrite(SONAR_READ, LOW);
+  //digitalWrite(SONAR_READ, HIGH); // enable pullups
   
   #if defined(PROMINI)
 	  PCICR |= (1<<0) ; // PCINT activated for PINS [D8-D13] on port B
@@ -75,80 +78,78 @@ void initSonar() {
   #endif
 }
 
-// Handle interrupt to receive data
-#if defined(PROMINI)
-  ISR(PCINT0_vect) {
-    uint8_t pin;
-    uint16_t cTime,dTime;
-    static uint16_t edgeTime;
-    uint16_t sonarData;
+// Install interrupt  handler
+ISR(PCINT0_vect) {
+  uint8_t pin;
+  uint16_t cTime;
+  static uint16_t edgeTime;
 
-    pin = PINB;
-    cTime = micros();
-    sei(); // re-enable interrupts
-    
-    // Read sonar pin state
-    if(pin & SONAR_READ_MASK) { 
-    	edgeTime = cTime;
-    } else {
-      processSonarData((cTime-edgeTime) / 59);  //  distance_cm = time_us * 340 * 100 / 1000000 / 2
-    }
-  }
-#endif
-
-
-// Analize measured data (in cm)
-inline void processSonarData(uint16_t data)
-{
-  if(data < SONAR_MAX_DISTANCE) { // valid data received
-		// Apply LPF filter with velocity taked in account
-	  #ifdef SONAR_LPF_FACTOR
-		  uint16_t T, dT;
-		  static uint16_t Tprev = 0, dTprev = 0;
-		  int16_t tmp;
-		  static int16_t dSprev = 0;
-		
-		  T = micros(); // keep only 16 last bits
-		  dT = T - Tprev;
-		  if(dT > SONAR_MAX_TIME) dT = SONAR_MAX_TIME;  // too big interval means measure error or time counter overflow
-			tmp = sonarDistance;
-		  sonarDistance = ((sonarDistance + ((int32_t)dSprev)*dT/dTprev/SONAR_LPF_VEL_FACTOR) * SONAR_LPF_FACTOR + data) / (SONAR_LPF_FACTOR + 1);
-		  Tprev = T; 
-		  dTprev = dT;
-		  dSprev = sonarDistance - tmp;
-	  
-	  #else
-	    sonarDistance = data;
-	  #endif
-	  
-	  sonarErrors = 0;
+  pin = PINB;
+  cTime = micros();
+  sei(); // re-enable interrupts
+  
+  // Read sonar pin state
+  if(pin & SONAR_READ_MASK) { 
+  	edgeTime = cTime;
   } else {
-  	incError();
-  }
+		#ifdef SONAR_DEBUG
+			// measureTime = millis() - startTime; TODO: uncomment!
+		#endif
+		
+		sonarData = cTime - edgeTime;  // sonarData will be processed later (exit this interrupt quickly)
 
-  startTime = 0; // we are ready for next measure
+	  state = 2; // finished measure
+  }
 }
 
+
+
 inline void incError() {
-	if(sonarErrors < SONAR_MAX_ERRORS)
+	if(sonarErrors < SONAR_ERROR_MAX)
 		sonarErrors++;
 }	
 
-// Trigger sonar measure. 
-// TODO: 10us pause here, is it better to replace waiting by usefull code?
-void sonarTrigger() {
-	uint16_t curTime = micros();
+// Trigger sonar measure and calculate distance
+inline void sonarTrigger() {
+	uint16_t curTime = millis();
+	uint16_t dTime = curTime - startTime;
 
-	// If we are waiting too long,  finish waiting and increse error counter
-	if(curTime - startTime > SONAR_MAX_TIME) {
+	// If we are waiting too long,  finish waiting and increase error counter
+	if(dTime > SONAR_MAX_TIME) {
 		incError();
-		startTime = 0;
+		state = 0;
+	}
+	
+	else if(state == 2) { // Measure finished
+		if(dTime > SONAR_ERROR_TIME) { // wrong time, it should be error!
+			incError();
+			state = 0;
+		} else if(dTime > SONAR_WAIT_TIME) {
+			uint16_t dist = sonarData / 6;
+			measureTime = dist; //TODO: remove!
+
+		  if(dist < SONAR_MAX_DISTANCE) { // valid data received
+				// Apply LPF filter
+			  #ifdef SONAR_LPF_FACTOR
+				  sonarDistance = (sonarDistance * SONAR_LPF_FACTOR  + dist) / (SONAR_LPF_FACTOR + 1);
+			  #else
+			    sonarDistance = dist;
+			  #endif
+			  
+			  sonarErrors = 0; 
+		  } else {
+		  	incError();
+		  }
+		  
+		  state = 0; // ready for next measure
+		}
 	}
 
-	// Start new measure only if previous measure was finished
-	if(startTime == 0) {
-		startTime = curTime;
+	// Start new measure
+	if(state == 0) {
 		digitalWrite(SONAR_PING, HIGH);
+		startTime = curTime;
+		state = 1;
 	  delayMicroseconds(10); 
 	  digitalWrite(SONAR_PING, LOW);
 	}
