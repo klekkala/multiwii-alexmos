@@ -85,7 +85,13 @@ void serialCom() {
       serialize8(VERSION);  // MultiWii Firmware version
       for(i=0;i<3;i++) serialize16(accSmooth[i]);
       for(i=0;i<3;i++) serialize16(gyroData[i]);
+    #if defined(SONAR_DEBUG)
+      serialize16(sonarDistance*3); 
+      serialize16(sonarErrors*3);
+      serialize16(measureTime*3); 
+    #else
       for(i=0;i<3;i++) serialize16(magADC[i]);
+    #endif
       serialize16(EstAlt/10);
       serialize16(heading); // compass
       for(i=0;i<4;i++) serialize16(servo[i]);

@@ -166,6 +166,18 @@ static int16_t  GPS_directionToHome = 0; // in degrees
 static uint8_t  GPS_update = 0;          // it's a binary toogle to distinct a GPS position update
 static int16_t  GPS_angle[2];            // it's the angles that must be applied for GPS correction
 
+// **********************
+// Sonar
+// **********************
+#ifdef SONAR
+	static int16_t sonarDistance = 0; // distance, mm (0..SONAR_MAX_DISTANCE)
+	static uint8_t sonarErrors = 0; // errors count (0..SONAR_ERROR_MAX). 
+	#ifdef SONAR_DEBUG
+		volatile uint16_t measureTime = 0;// time from PING HIGH to ECHO LOW
+	#endif
+#endif
+
+
 void blinkLED(uint8_t num, uint8_t wait,uint8_t repeat) {
   uint8_t i,r;
   for (r=0;r<repeat;r++) {
@@ -348,6 +360,11 @@ void annexCode() { //this code is excetuted at each loop and won't interfere wit
       GPSLEDTime = currentTime + 150000;
       LEDPIN_TOGGLE;
     }
+  #endif
+
+  // alexmos: ping sonar
+  #ifdef SONAR
+  	sonarTrigger();
   #endif
 }
 
@@ -680,10 +697,5 @@ void loop () {
         }
       }
     }
-  #endif
-  
-  // alexmos: activate sonar measure
-  #ifdef SONAR
-  	sonarTrigger();
   #endif
 }
