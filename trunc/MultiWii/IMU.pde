@@ -139,7 +139,8 @@ typedef union {
   t_fp_vector_def V;
 } t_fp_vector;
 
-int16_t _atan2(float y, float x){
+// alexmos: atan2 in radians
+inline float _atan2rad(float y, float x) {
   #define fp_is_neg(val) ((((byte*)&val)[3] & 0x80) != 0)
   float z = y / x;
   int16_t zi = abs(int16_t(z * 100)); 
@@ -155,8 +156,11 @@ int16_t _atan2(float y, float x){
    z = (PI / 2.0f) - z / (z * z + 0.28f);
    if (y_neg) z -= PI;
   }
-  z *= (180.0f / PI * 10); 
   return z;
+}
+
+int16_t _atan2(float y, float x){
+	return _atan2rad(y, x) * (180.0f / PI * 10); 
 }
 
 // Rotate Estimated vector(s) with small angle approximation, according to the gyro data
@@ -167,10 +171,12 @@ void rotateV(struct fp_vector *v,float* delta) {
   v->Y += delta[PITCH] * v_tmp.Z + delta[YAW]   * v_tmp.X; 
 }
 
+// alexmos: need it later
+static t_fp_vector EstG;
+
 void getEstimatedAttitude(){
   uint8_t axis;
   int16_t accMag = 0;
-  static t_fp_vector EstG;
 #if MAG
   static t_fp_vector EstM;
 #endif
@@ -180,12 +186,12 @@ void getEstimatedAttitude(){
 #if defined(ACC_LPF_FACTOR)
   static int16_t accTemp[3];  //projection of smoothed and normalized magnetic vector on x/y/z axis, as measured by magnetometer
 #endif
-  static uint16_t previousT;
-  uint16_t currentT = micros();
+  //static uint16_t previousT;
+  //uint16_t currentT = micros();
   float scale, deltaGyroAngle[3];
 
-  scale = (currentT - previousT) * GYRO_SCALE;
-  previousT = currentT;
+  scale = cycleTime * GYRO_SCALE;
+  //previousT = currentT;
 
   // Initialization
   for (axis = 0; axis < 3; axis++) {
@@ -248,6 +254,97 @@ void getEstimatedAttitude(){
   #endif
 }
 
+
+/* alexmos: baro + ACC altitude estimator */
+/* It outputs altitude, velocity and 'pure' acceleration on Z axis (with 1G substracted) */
+/* Set the trust ACC compared to BARO. Default is 300. 
+/* For good ACC sensor and noisy BARO increase it. If both are noise - sorry :) */
+#define ACC_BARO_CMPF 500.0f
+/* PID values to correct 'pure' ACC (it should be zero without any motion) */
+#define ACC_BARO_ERR_P 50.0f   
+#define ACC_BARO_ERR_I (ACC_BARO_ERR_P * 0.001f)
+#define ACC_BARO_ERR_D (ACC_BARO_ERR_P * 0.005f)
+/* Velocity dumper. Higher values prevents  oscillations in case of high PID's */
+#define VEL_DUMP_FACTOR 500.0f
+/* Output some vars to GUI (replacing 'MAG' and 'heading') */
+#define ALT_DEBUG
+
+void getEstimatedAltitude(){
+  static uint16_t dTime = 0;
+  static int8_t initDone = 0;
+  static float alt = 0; // cm
+  static float vel = 0; // cm/sec
+ 	static float err = 0, errI = 0, errPrev = 0; // error integrator
+  static float accScale; // config variables
+  float accZ;
+  
+  //BaroAlt = 0; // TODO: remove
+
+  // get alt from baro on sysem start
+  if(!initDone && BaroAlt != 0) {
+  	alt = BaroAlt;
+  	accScale = 9.80665f / acc_1G / 10000.0f;
+  	initDone = 1;
+  }
+  
+  // error between estimated alt and BARO alt
+  // TODO: take cycleTime and acc_1G into account to leave PID settings invariant between different sensors and setups
+  err = (alt - BaroAlt)/ACC_BARO_CMPF; // P term of error
+  errI+= err * ACC_BARO_ERR_I; // I term of error
+	
+  if(abs(EstG.V.Z) > acc_1G/2) { 
+  	// angle is good to take ACC.Z into account.  
+  	// (if we skip this step - no big problem, altitude will be corrected by baro only)
+
+	  /* Project ACC vector A to 'global' Z axis (estimated by gyro vector G) and correct static bias (I term of PID)
+	  /* Background:
+	  /*  	accZ = Az * |G| / Gz
+	  /* 		|G| = sqrt(Gx*Gx + Gy*Gy + Gz*Gz)
+	  /* 		sqrt(a*a + b*b + c*c) =~ a + (b*b + c*c)/2/a  if b + c << a (talor series approximation)
+	  /* TODO: use integer arithmetic
+	  */
+	  //accZ =  accADC[YAW] * (1.0f + (fsq(EstG.V.X) + fsq(EstG.V.Y))/2.0f/fsq(EstG.V.Z)) - errI;
+	  // --OR-- approximation using InvSqrt. Correct error before projection.
+	  //accZ = (accADC[YAW] - errI) / InvSqrt(fsq(EstG.V.X) + fsq(EstG.V.Y) + fsq(EstG.V.Z)) / EstG.V.Z;
+	  // --OR-- the same, but correct ACC error after projection
+	  accZ = accADC[YAW] / InvSqrt(fsq(EstG.V.X) + fsq(EstG.V.Y) + fsq(EstG.V.Z)) / EstG.V.Z - errI;
+	  
+	  // Integrator - velocity, cm/sec
+	  // Apply P and D terms of PID correction
+	  // D term of real error is VERY noisy, so use Dterm = vel (it will lead vel to zero)
+	  vel+= (accZ - acc_1G - err*ACC_BARO_ERR_P - vel*ACC_BARO_ERR_D) * cycleTime * accScale;
+	  
+	  // Integrator - altitude, cm
+	  alt+= vel * cycleTime / 1000000;
+
+	  // Dump velocity to prevent oscillations
+	  //vel*= VEL_DUMP_FACTOR/(VEL_DUMP_FACTOR + 1);
+  }
+
+  // Apply ACC->BARO complimentary filter
+  alt-= err;
+  errPrev = err;
+  
+  EstAlt = alt;
+  
+  // debug to GUI
+  #ifdef ALT_DEBUG
+	  magADC[ROLL] = (accZ - acc_1G)*3;
+	  magADC[PITCH] = errI*3;
+	  magADC[YAW] = err*300;
+	  heading = vel;
+	#endif
+}
+
+int32_t isq(int16_t x){return x * x;}
+float fsq(float x){return x * x;}
+
+
+
+
+
+
+
 float InvSqrt (float x){ 
   union{  
     int32_t i;  
@@ -257,7 +354,6 @@ float InvSqrt (float x){
   conv.i = 0x5f3759df - (conv.i >> 1); 
   return 0.5f * conv.f * (3.0f - x * conv.f * conv.f);
 } 
-int32_t isq(int32_t x){return x * x;}
 
 #define UPDATE_INTERVAL 25000    // 40hz update rate (20hz LPF on acc)
 #define INIT_DELAY      4000000  // 4 sec initialization delay
@@ -266,7 +362,7 @@ int32_t isq(int32_t x){return x * x;}
 #define Ki  0.001f               // PI observer integral gain (bias cancellation)
 #define dt  (UPDATE_INTERVAL / 1000000.0f)
 
-void getEstimatedAltitude(){
+void getEstimatedAltitude2(){
   static uint8_t inited = 0;
   static int16_t AltErrorI = 0;
   static float AccScale  = 0.0f;
@@ -303,3 +399,9 @@ void getEstimatedAltitude(){
   EstAlt += (EstVelocity/5 + Delta) * (dt / 2) + (Kp2 * dt) * AltError;
   EstVelocity += Delta*10;
 }
+
+  
+  
+  
+  
+  
