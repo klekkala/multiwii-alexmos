@@ -134,7 +134,7 @@
    IMPORTANT! Change low pass filter setting changes PID behaviour, so retune your PID's after changing LPF.*/
 //#define ITG3200_LPF_256HZ     // This is the default setting, no need to uncomment, just for reference
 //#define ITG3200_LPF_188HZ
-//#define ITG3200_LPF_98HZ
+#define ITG3200_LPF_98HZ
 //#define ITG3200_LPF_42HZ
 //#define ITG3200_LPF_20HZ
 //#define ITG3200_LPF_10HZ      // Use this only in extreme cases, rather change motors and/or props
@@ -395,10 +395,10 @@
 #define MAXCHECK 1850
 
 /* Use ultrasonic sensor for ALT HOLD. (see Sonar.pde for details) */
-#define SONAR
+//#define SONAR
 #define SONAR_PING A2 // PIN that trigger measure
 #define SONAR_READ 12 // PIN to read response pulse, 12 or 8
-#define SONAR_DEBUG // output some data to GUI (replacing MAG and debug variables)
+//#define SONAR_DEBUG // output some data to GUI (replacing MAG and debug variables)
 
 /**************************************/
 /****END OF CONFIGURABLE PARAMETERS****/
