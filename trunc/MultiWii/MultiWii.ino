@@ -48,6 +48,7 @@ December  2011     V1.dev
 static uint32_t currentTime = 0;
 static uint32_t previousTime = 0;
 static uint16_t cycleTime = 0;     // this is the number in micro second to achieve a full loop, it can differ a little and is taken into account in the PID loop
+static uint16_t cycleCnt = 0;
 static uint16_t calibratingA = 0;  // the calibration is done is the main loop. Calibrating decreases at each cycle down to 0, then we enter in a normal mode.
 static uint8_t  calibratingM = 0;
 static uint16_t calibratingG;
@@ -75,6 +76,7 @@ static int32_t  pressure;
 static int32_t  BaroAlt;
 static int32_t  EstVelocity;
 static int32_t  EstAlt;             // in cm
+static int16_t  EstAcc;             // in sensor's values
 static uint8_t  buzzerState = 0;
   
 //for log
@@ -84,6 +86,8 @@ static uint16_t powerMax = 0;           // highest ever current
 
 static int16_t  i2c_errors_count = 0;
 static int16_t  annex650_overrun_count = 0;
+
+static int16_t debug1=0 , debug2=0, debug3=0, debug4=0;
 
 // **********************
 // power meter
@@ -428,9 +432,11 @@ void loop () {
   static uint32_t rcTime  = 0;
   static int16_t initialThrottleHold;
   static int16_t errorAltitudeI = 0;
-  int16_t AltPID = 0;
-  static int16_t lastVelError = 0;
-  static int32_t AltHold;
+  static int16_t AltHold;
+  static int16_t lastAltErr = 0;
+  int16_t AltPID, VelPID;
+  
+  cycleCnt++;
  
   #if defined(SPEKTRUM)
     if (rcFrameComplete) computeRC();
@@ -549,14 +555,13 @@ void loop () {
     if (accMode == 1) STABLEPIN_ON else STABLEPIN_OFF;
 
     if(BARO) {
-      if ((rcOptions1 & activate1[BOXBARO]) || (rcOptions2 & activate2[BOXBARO])) {
+      if (((rcOptions1 & activate1[BOXBARO]) || (rcOptions2 & activate2[BOXBARO])) && failsafeCnt < (5*FAILSAVE_DELAY) && armed == 1) {
         if (baroMode == 0) {
           baroMode = 1;
           AltHold = EstAlt;
           initialThrottleHold = rcCommand[THROTTLE];
           errorAltitudeI = 0;
-          lastVelError = 0;
-          EstVelocity = 0;
+          lastAltErr = 0;
         }
       } else baroMode = 0;
     }
@@ -602,29 +607,41 @@ void loop () {
 
   if(BARO) {
     if (baroMode) {
-      if (abs(rcCommand[THROTTLE]-initialThrottleHold)>20) {
-        baroMode = 0;
-        errorAltitudeI = 0;
-      }
-      //**** Alt. Set Point stabilization PID ****
-      error = constrain( AltHold - EstAlt, -1000, 1000); //  +/-10m,  1 decimeter accuracy
+      // Alt PID's
+      error = constrain( AltHold - EstAlt, -100, 100); //  +/-1m, if more - something wrong
       errorAltitudeI += error;
       errorAltitudeI = constrain(errorAltitudeI,-30000,30000);
+      delta = error - lastAltErr;
+      lastAltErr = error;
       
-      PTerm = P8[PIDALT]*error/100;                     // 16 bits is ok here
+      PTerm = P8[PIDALT]*error/100;
       ITerm = (int32_t)I8[PIDALT]*errorAltitudeI/40000;
+      DTerm = D8[PIDALT]*delta/10;
       
-      AltPID = PTerm + ITerm ;
+      AltPID = PTerm + ITerm + DTerm;
 
-      //**** Velocity stabilization PD ****        
-      error = constrain(EstVelocity*2, -30000, 30000);
-      delta = error - lastVelError;
-      lastVelError = error;
-
-      PTerm = (int32_t)error * P8[PIDVEL]/800;
-      DTerm = (int32_t)delta * D8[PIDVEL]/16;
+      // Throttle stick moved? 
+      if (abs(rcCommand[THROTTLE]-initialThrottleHold) > ALT_HOLD_DEADBAND) {
+      	// Slowly increase AltHold proportional to stick movement ( +100 throttle gives +10 cm in 1 second)
+      	if(cycleCnt%300 == 0) { // ~1 times per second
+      		AltHold+= (rcCommand[THROTTLE] - initialThrottleHold)/10;
+      	}
+      	VelPID = 0;
+      } else {
+      	// Hold velocity only after finishing stick movement
+	      PTerm =  constrain(EstVelocity, -100, 100) * P8[PIDVEL]/100; // limit to +/-1m/sec
+	      DTerm =  constrain(EstAcc, -100, 100) * D8[PIDVEL]/16; // acceleration = delta velocity error
+	      
+	      VelPID = PTerm + DTerm;
+      }
       
-      rcCommand[THROTTLE] = initialThrottleHold + constrain(AltPID - (PTerm - DTerm),-100,+100);
+      // Debug PID controller to GUI
+      #ifdef ALT_DEBUG
+        debug4 = AltPID - VelPID;
+      #endif
+
+      	
+      rcCommand[THROTTLE] = initialThrottleHold + constrain(AltPID - VelPID, -200, +200);
     }
   }
 
