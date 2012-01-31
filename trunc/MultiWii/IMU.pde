@@ -256,25 +256,23 @@ void getEstimatedAttitude(){
 
 
 /* alexmos: baro + ACC altitude estimator */
-/* It outputs altitude, velocity and 'pure' acceleration on Z axis (with 1G substracted) */
-/* Set the trust ACC compared to BARO. Default is 300. 
-/* For good ACC sensor and noisy BARO increase it. If both are noise - sorry :) */
-#define ACC_BARO_CMPF 500.0f
-/* PID values to correct 'pure' ACC (it should be zero without any motion) */
-#define ACC_BARO_ERR_P 50.0f   
-#define ACC_BARO_ERR_I (ACC_BARO_ERR_P * 0.001f)
-#define ACC_BARO_ERR_D (ACC_BARO_ERR_P * 0.005f)
-/* Velocity dumper. Higher values prevents  oscillations in case of high PID's */
-#define VEL_DUMP_FACTOR 500.0f
-/* Output some vars to GUI (replacing 'MAG' and 'heading') */
-#define ALT_DEBUG
-
+/* It outputs altitude, velocity and 'pure' acceleration projected on Z axis (with 1G substracted) */
+/* It has a very good resistance to inclanations, horisontal movements, ACC drift and baro noise. */
+/* But it need fine tuning for various setups :( */
+/* Settings: */
+/* Set the ACC weight compared to BARO. Default is 300 */
+#define ACC_BARO_CMPF 300.0f
+/* Sensor PID values. */
+/* Tuning advice: The main target is to get the minimum settle time of 'velocity' (it should fast go to zero without oscillations)  */
+#define ACC_BARO_P 30.0f   
+#define ACC_BARO_I (ACC_BARO_P * 0.001f)
+#define ACC_BARO_D (ACC_BARO_P * 0.001f)
+#define VEL_SCALE ((1.0f - 1.0f/ACC_BARO_CMPF)/1000000.0f)
 void getEstimatedAltitude(){
-  static uint16_t dTime = 0;
   static int8_t initDone = 0;
   static float alt = 0; // cm
   static float vel = 0; // cm/sec
- 	static float err = 0, errI = 0, errPrev = 0; // error integrator
+ 	static float err = 0, errI = 0, errPrev = 0;
   static float accScale; // config variables
   float accZ;
   
@@ -290,48 +288,40 @@ void getEstimatedAltitude(){
   // error between estimated alt and BARO alt
   // TODO: take cycleTime and acc_1G into account to leave PID settings invariant between different sensors and setups
   err = (alt - BaroAlt)/ACC_BARO_CMPF; // P term of error
-  errI+= err * ACC_BARO_ERR_I; // I term of error
+  errI+= err * ACC_BARO_I; // I term of error
 	
-  if(abs(EstG.V.Z) > acc_1G/2) { 
-  	// angle is good to take ACC.Z into account.  
-  	// (if we skip this step - no big problem, altitude will be corrected by baro only)
+  if(abs(EstG.V.Z) > acc_1G/2) { // angle is good to take accZ into account.  
+  	// (if we skip this step - no problem, altitude will be corrected by baro only)
 
-	  /* Project ACC vector A to 'global' Z axis (estimated by gyro vector G) and correct static bias (I term of PID)
-	  /* Background:
-	  /*  	accZ = Az * |G| / Gz
-	  /* 		|G| = sqrt(Gx*Gx + Gy*Gy + Gz*Gz)
-	  /* 		sqrt(a*a + b*b + c*c) =~ a + (b*b + c*c)/2/a  if b + c << a (talor series approximation)
-	  /* TODO: use integer arithmetic
-	  */
-	  //accZ =  accADC[YAW] * (1.0f + (fsq(EstG.V.X) + fsq(EstG.V.Y))/2.0f/fsq(EstG.V.Z)) - errI;
-	  // --OR-- approximation using InvSqrt. Correct error before projection.
-	  //accZ = (accADC[YAW] - errI) / InvSqrt(fsq(EstG.V.X) + fsq(EstG.V.Y) + fsq(EstG.V.Z)) / EstG.V.Z;
-	  // --OR-- the same, but correct ACC error after projection
-	  accZ = accADC[YAW] / InvSqrt(fsq(EstG.V.X) + fsq(EstG.V.Y) + fsq(EstG.V.Z)) / EstG.V.Z - errI;
+	  // Project ACC vector A to 'global' Z axis (estimated by gyro vector G) and correct static bias (I term of PID)
+	  // Math: accZ = A * G / |G|
+	  accZ = (accADC[0]*EstG.V.X + accADC[1]*EstG.V.Y + accADC[2]*EstG.V.Z) * 
+	  				InvSqrt(fsq(EstG.V.X) + fsq(EstG.V.Y) + fsq(EstG.V.Z)) 
+	  				- errI - acc_1G;
 	  
 	  // Integrator - velocity, cm/sec
 	  // Apply P and D terms of PID correction
-	  // D term of real error is VERY noisy, so use Dterm = vel (it will lead vel to zero)
-	  vel+= (accZ - acc_1G - err*ACC_BARO_ERR_P - vel*ACC_BARO_ERR_D) * cycleTime * accScale;
+	  // D term of real error is VERY noisy, so we use Dterm = vel (it will lead velocity to zero)
+	  vel+= (accZ - err*ACC_BARO_P - vel*ACC_BARO_D) * cycleTime * accScale;
 	  
-	  // Integrator - altitude, cm
-	  alt+= vel * cycleTime / 1000000;
+	  // Integrator - altitude, cm  
+	  alt+= vel * cycleTime * VEL_SCALE;
+  } 
 
-	  // Dump velocity to prevent oscillations
-	  //vel*= VEL_DUMP_FACTOR/(VEL_DUMP_FACTOR + 1);
-  }
-
-  // Apply ACC->BARO complimentary filter
-  alt-= err;
+	// Apply ACC->BARO complimentary filter
+	alt-= err;
   errPrev = err;
   
+  // Save global data for PID's
   EstAlt = alt;
+  EstVelocity = vel;
+  EstAcc = accZ;
   
   // debug to GUI
   #ifdef ALT_DEBUG
-	  magADC[ROLL] = (accZ - acc_1G)*3;
-	  magADC[PITCH] = errI*3;
-	  magADC[YAW] = err*300;
+  	debug1 = BaroAlt/10;
+	  debug2 = accZ;
+	  debug3 = errI;
 	  heading = vel;
 	#endif
 }

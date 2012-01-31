@@ -122,10 +122,19 @@ void serialCom() {
       serialize16(intPowerMeterSum);
       serialize16(intPowerTrigger1);
       serialize8(vbat);
-      serialize16(BaroAlt/10);        // 4 variables are here for general monitoring purpose
-      serialize16(i2c_errors_count);  // debug2
-      serialize16(annex650_overrun_count);// debug3
-      serialize16(armed);             // debug4
+
+      // alexmos: different use of debug variables
+      serialize16(debug1);        // 4 variables are here for general monitoring purpose
+      serialize16(debug2);  // debug2
+      serialize16(debug3);// debug3
+      serialize16(debug4);             // debug4
+      
+      // set it to default (will output next time if nobody set them)
+      debug1 = BaroAlt/10;
+      debug2 = i2c_errors_count;
+      debug3 = annex650_overrun_count;
+      debug4 = armed;
+      
       serialize8('M');
       UartSendData();
       break;

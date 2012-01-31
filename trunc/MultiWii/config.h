@@ -76,6 +76,9 @@
    Must be greater than zero, comment if you dont want a deadband on roll, pitch and yaw */
 #define DEADBAND 30
 
+/* deadband around throttle setpoint in BARO mode  */
+#define ALT_HOLD_DEADBAND 50
+
 /* if you use a specific sensor board:
    please submit any correction to this list.
      Note from Alex: I only own some boards
@@ -399,6 +402,10 @@
 #define SONAR_PING A2 // PIN that trigger measure
 #define SONAR_READ 12 // PIN to read response pulse, 12 or 8
 //#define SONAR_DEBUG // output some data to GUI (replacing MAG and debug variables)
+
+/* Output some vars to GUI (for PID tuning) 
+* TODO: describe vars and tuning algorithm */
+#define ALT_DEBUG
 
 /**************************************/
 /****END OF CONFIGURABLE PARAMETERS****/
