@@ -290,25 +290,21 @@ void getEstimatedAltitude(){
   err = (alt - BaroAlt)/ACC_BARO_CMPF; // P term of error
   errI+= err * ACC_BARO_I; // I term of error
 	
-  if(abs(EstG.V.Z) > acc_1G/2) { // angle is good to take accZ into account.  
-  	// (if we skip this step - no problem, altitude will be corrected by baro only)
+  // Project ACC vector A to 'global' Z axis (estimated by gyro vector G) and correct static bias (I term of PID)
+  // Math: accZ = A * G / |G|
+  accZ = (accADC[0]*EstG.V.X + accADC[1]*EstG.V.Y + accADC[2]*EstG.V.Z) * 
+  				InvSqrt(fsq(EstG.V.X) + fsq(EstG.V.Y) + fsq(EstG.V.Z)) 
+  				- errI - acc_1G;
+  
+  // Integrator - velocity, cm/sec
+  // Apply P and D terms of PID correction
+  // D term of real error is VERY noisy, so we use Dterm = vel (it will lead velocity to zero)
+  vel+= (accZ - err*ACC_BARO_P - vel*ACC_BARO_D) * cycleTime * accScale;
+  
+  // Integrator - altitude, cm  
+  alt+= vel * cycleTime * VEL_SCALE;
 
-	  // Project ACC vector A to 'global' Z axis (estimated by gyro vector G) and correct static bias (I term of PID)
-	  // Math: accZ = A * G / |G|
-	  accZ = (accADC[0]*EstG.V.X + accADC[1]*EstG.V.Y + accADC[2]*EstG.V.Z) * 
-	  				InvSqrt(fsq(EstG.V.X) + fsq(EstG.V.Y) + fsq(EstG.V.Z)) 
-	  				- errI - acc_1G;
-	  
-	  // Integrator - velocity, cm/sec
-	  // Apply P and D terms of PID correction
-	  // D term of real error is VERY noisy, so we use Dterm = vel (it will lead velocity to zero)
-	  vel+= (accZ - err*ACC_BARO_P - vel*ACC_BARO_D) * cycleTime * accScale;
-	  
-	  // Integrator - altitude, cm  
-	  alt+= vel * cycleTime * VEL_SCALE;
-  } 
-
-	// Apply ACC->BARO complimentary filter
+	// Apply ACC->BARO complementary filter
 	alt-= err;
   errPrev = err;
   
