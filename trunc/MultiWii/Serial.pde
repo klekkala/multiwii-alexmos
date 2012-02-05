@@ -85,13 +85,7 @@ void serialCom() {
       serialize8(VERSION);  // MultiWii Firmware version
       for(i=0;i<3;i++) serialize16(accSmooth[i]);
       for(i=0;i<3;i++) serialize16(gyroData[i]);
-    #if defined(SONAR_DEBUG)
-      serialize16(sonarDistance*3); 
-      serialize16(sonarErrors*3);
-      serialize16(measureTime*3); 
-    #else
       for(i=0;i<3;i++) serialize16(magADC[i]);
-    #endif
       serialize16(EstAlt/10);
       serialize16(heading); // compass
       for(i=0;i<4;i++) serialize16(servo[i]);
@@ -123,18 +117,18 @@ void serialCom() {
       serialize16(intPowerTrigger1);
       serialize8(vbat);
 
-      // alexmos: different use of debug variables
+      // alexmos: use of external debug variables
+      #if !defined(ALT_DEBUG) && !defined(SONAR_DEBUG)
+	      debug1 = BaroAlt/10;
+	      debug2 = i2c_errors_count;
+	      debug3 = annex650_overrun_count;
+	      debug4 = armed;
+	    #endif
       serialize16(debug1);        // 4 variables are here for general monitoring purpose
       serialize16(debug2);  // debug2
       serialize16(debug3);// debug3
       serialize16(debug4);             // debug4
-      
-      // set it to default (will output next time if nobody set them)
-      debug1 = BaroAlt/10;
-      debug2 = i2c_errors_count;
-      debug3 = annex650_overrun_count;
-      debug4 = armed;
-      
+
       serialize8('M');
       UartSendData();
       break;

@@ -174,11 +174,9 @@ static int16_t  GPS_angle[2];            // it's the angles that must be applied
 // Sonar
 // **********************
 #ifdef SONAR
-	static int16_t sonarDistance = 0; // distance, mm (0..SONAR_MAX_DISTANCE)
-	static uint8_t sonarErrors = 0; // errors count (0..SONAR_ERROR_MAX). 
-	#ifdef SONAR_DEBUG
-		volatile uint16_t measureTime = 0;// time from PING HIGH to ECHO LOW
-	#endif
+	static int16_t SonarAlt = 0; // distance, cm (0..SONAR_MAX_DISTANCE)
+	static uint8_t SonarErrors = 0; // errors count (0..SONAR_ERROR_MAX). 
+	static int32_t BaroSonarDiff = 0; // difference between BARO and SONAR altitude
 #endif
 
 
@@ -433,8 +431,7 @@ void loop () {
   static int16_t initialThrottleHold;
   static int16_t errorAltitudeI = 0;
   static int16_t AltHold;
-  static int16_t lastAltErr = 0;
-  int16_t AltPID, VelPID;
+  int16_t AltPID;
   
   cycleCnt++;
  
@@ -561,7 +558,6 @@ void loop () {
           AltHold = EstAlt;
           initialThrottleHold = rcCommand[THROTTLE];
           errorAltitudeI = 0;
-          lastAltErr = 0;
         }
       } else baroMode = 0;
     }
@@ -611,14 +607,12 @@ void loop () {
       error = constrain( AltHold - EstAlt, -100, 100); //  +/-1m, if more - something wrong
       errorAltitudeI += error;
       errorAltitudeI = constrain(errorAltitudeI,-30000,30000);
-      delta = error - lastAltErr;
-      lastAltErr = error;
       
       PTerm = P8[PIDALT]*error/100;
-      ITerm = (int32_t)I8[PIDALT]*errorAltitudeI/40000;
-      DTerm = D8[PIDALT]*delta/10;
+      ITerm = ((int32_t)I8[PIDALT])*errorAltitudeI/40000;
+      DTerm = D8[PIDALT]*constrain(EstVelocity, -100, 100)/100;
       
-      AltPID = PTerm + ITerm + DTerm;
+      AltPID = PTerm + ITerm - DTerm;
 
       // Throttle stick moved? 
       if (abs(rcCommand[THROTTLE]-initialThrottleHold) > ALT_HOLD_DEADBAND) {
@@ -626,22 +620,15 @@ void loop () {
       	if(cycleCnt%300 == 0) { // ~1 times per second
       		AltHold+= (rcCommand[THROTTLE] - initialThrottleHold)/10;
       	}
-      	VelPID = 0;
-      } else {
-      	// Hold velocity only after finishing stick movement
-	      PTerm =  constrain(EstVelocity, -100, 100) * P8[PIDVEL]/100; // limit to +/-1m/sec
-	      DTerm =  constrain(EstAcc, -100, 100) * D8[PIDVEL]/16; // acceleration = delta velocity error
-	      
-	      VelPID = PTerm + DTerm;
-      }
+      } 
       
       // Debug PID controller to GUI
       #ifdef ALT_DEBUG
-        debug4 = AltPID - VelPID;
+        debug4 = AltPID;
       #endif
 
       	
-      rcCommand[THROTTLE] = initialThrottleHold + constrain(AltPID - VelPID, -200, +200);
+      rcCommand[THROTTLE] = initialThrottleHold + constrain(AltPID, -200, +200);
     }
   }
 

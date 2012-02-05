@@ -1,5 +1,5 @@
 /**************************************************************
-Sonar sensor HC-SR04 support (by alexmos)
+Sonar sensor HC-SR04 (by alexmos)
 http://www.google.ru/url?sa=t&rct=j&q=HC-SR04&source=web&cd=1&ved=0CCUQFjAA&url=http%3A%2F%2Fjaktek.com%2Fwp-content%2Fuploads%2F2011%2F12%2FHC-SR04.pdf&ei=19gdT7GPHKLk4QShyciWDQ&usg=AFQjCNGvwkkPlRVU3B2v7KfGMKRTPYZ4hw
 
 From datasheet:
@@ -18,36 +18,10 @@ Connections HC-SR04 <-> PROMINI:
 
 Note:
 -CAMTRIG and RCAUXPIN12 must be disabled in general config!
--Implemented only for PROMINI board: I have only this one, sorry.
+-Implemented only for PROMINI board (because I have only this one, sorry).
 ***************************************************************/
 
 #ifdef SONAR
-
-/* Maximum measured distance, mm */
-#define SONAR_MAX_DISTANCE 4500
-
-/* Maximum measure time, ms 
-* If no signal received after this time, start next measure */
-#define SONAR_MAX_TIME 300
-
-/* Pause between measures, ms. 
-* (recomended 50ms to skip echo from previous measure) */
-#define SONAR_WAIT_TIME 50
-
-/* If measuring takes more than this time, result treated as error. (ms) */
-/* (I have added this for my buggy HC-SR04 sensor) */
-#define SONAR_ERROR_TIME 150
-
-/* Maximum number of errors (i.e. 'sonarError' variable upper limit) */
-#define SONAR_ERROR_MAX 10
-
-
-/* LPF factor (integer 1..10). Bigger values means less noise (and less reaction speed).
-	Comment it to disable LPF at all */
-#define SONAR_LPF_FACTOR 5
-
-
-
 
 /* Define PIN mask to setup interrupt and to read data */
 #if (SONAR_READ==12)
@@ -93,10 +67,10 @@ ISR(PCINT0_vect) {
   	edgeTime = cTime;
   } else {
 		#ifdef SONAR_DEBUG
-			// measureTime = millis() - startTime; TODO: uncomment!
+			debug2 = millis() - startTime; // debug measure time to GUI
 		#endif
 		
-		sonarData = cTime - edgeTime;  // sonarData will be processed later (exit this interrupt quickly)
+		sonarData = cTime - edgeTime;  // sonarData will be processed later to leave interrupt quickly
 
 	  state = 2; // finished measure
   }
@@ -105,8 +79,8 @@ ISR(PCINT0_vect) {
 
 
 inline void incError() {
-	if(sonarErrors < SONAR_ERROR_MAX)
-		sonarErrors++;
+	if(SonarErrors < SONAR_ERROR_MAX)
+		SonarErrors++;
 }	
 
 // Trigger sonar measure and calculate distance
@@ -125,18 +99,12 @@ inline void sonarTrigger() {
 			incError();
 			state = 0;
 		} else if(dTime > SONAR_WAIT_TIME) {
-			uint16_t dist = sonarData / 6;
-			measureTime = dist; //TODO: remove!
+			uint16_t dist = sonarData/58;
 
 		  if(dist < SONAR_MAX_DISTANCE) { // valid data received
-				// Apply LPF filter
-			  #ifdef SONAR_LPF_FACTOR
-				  sonarDistance = (sonarDistance * SONAR_LPF_FACTOR  + dist) / (SONAR_LPF_FACTOR + 1);
-			  #else
-			    sonarDistance = dist;
-			  #endif
-			  
-			  sonarErrors = 0; 
+		    SonarAlt = dist;
+			  SonarErrors = 0; 
+				BaroSonarDiff = (BaroSonarDiff*BARO_SONAR_DIFF_LPF + SonarAlt - BaroAlt)/(BARO_SONAR_DIFF_LPF + 1);
 		  } else {
 		  	incError();
 		  }
@@ -153,6 +121,11 @@ inline void sonarTrigger() {
 	  delayMicroseconds(10); 
 	  digitalWrite(SONAR_PING, LOW);
 	}
+
+	#ifdef SONAR_DEBUG
+		debug1 = SonarAlt;
+		debug3 = SonarErros;
+	#endif
 }
 	  
 
