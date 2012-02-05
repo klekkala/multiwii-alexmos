@@ -397,11 +397,27 @@
 #define MINCHECK 1150
 #define MAXCHECK 1850
 
+
 /* Use ultrasonic sensor for ALT HOLD. (see Sonar.pde for details) */
-//#define SONAR
+#define SONAR
 #define SONAR_PING A2 // PIN that trigger measure
 #define SONAR_READ 12 // PIN to read response pulse, 12 or 8
 //#define SONAR_DEBUG // output some data to GUI (replacing MAG and debug variables)
+/* Maximum measuring distance, cm. Set it 10% lower than specified in datasheet */
+#define SONAR_MAX_DISTANCE 400
+/* Maximum measuring time, ms 
+* If no signal received after this time, start next measure */
+#define SONAR_MAX_TIME 300
+/* Pause between measures, ms. 
+* (recomended 50ms to skip echo from previous measure) */
+#define SONAR_WAIT_TIME 50
+/* If measuring takes more than this time, result treated as error. (ms) */
+#define SONAR_ERROR_TIME 150
+/* Maximum number of errors (i.e. 'sonarError' variable upper limit) */
+#define SONAR_ERROR_MAX 10
+/* LPF applyed to Baro-Sonar altitude correction */
+#define BARO_SONAR_DIFF_LPF 10
+
 
 /* Output some vars to GUI (for PID tuning) 
 * TODO: describe vars and tuning algorithm */

@@ -275,19 +275,35 @@ void getEstimatedAltitude(){
  	static float err = 0, errI = 0, errPrev = 0;
   static float accScale; // config variables
   float accZ;
+  int32_t sensorAlt;
   
-  //BaroAlt = 0; // TODO: remove
-
-  // get alt from baro on sysem start
-  if(!initDone && BaroAlt != 0) {
-  	alt = BaroAlt;
-  	accScale = 9.80665f / acc_1G / 10000.0f;
-  	initDone = 1;
+  // get alt from sensors on sysem start
+  if(!initDone) {
+  	if(BaroAlt != 0) { // start only if any sensor data avaliable
+		  #ifdef SONAR
+	  		alt = SonarAlt;
+		  	BaroSonarDiff = SonarAlt - BaroAlt;
+		  #else
+		  	alt = BaroAlt;
+		  #endif
+		  
+	  	accScale = 9.80665f / acc_1G / 10000.0f;
+	  	initDone = 1;
+	  }
+	  return;
   }
   
+  // If sonar present, it's altitude has more priority
+  #ifdef SONAR
+		// Use cross-section of SONAR and BARO altitudes, weighted by sonar erros
+		sensorAlt = (SonarAlt * (SONAR_ERROR_MAX - SonarErrors) + (BaroAlt + BaroSonarDiff) * SonarErrors)/SONAR_ERROR_MAX;
+  #else
+   sensorAlt = BaroAlt;
+  #endif
+
+  
   // error between estimated alt and BARO alt
-  // TODO: take cycleTime and acc_1G into account to leave PID settings invariant between different sensors and setups
-  err = (alt - BaroAlt)/ACC_BARO_CMPF; // P term of error
+  err = (alt - sensorAlt)/ACC_BARO_CMPF; // P term of error
   errI+= err * ACC_BARO_I; // I term of error
 	
   // Project ACC vector A to 'global' Z axis (estimated by gyro vector G) and correct static bias (I term of PID)
@@ -315,7 +331,7 @@ void getEstimatedAltitude(){
   
   // debug to GUI
   #ifdef ALT_DEBUG
-  	debug1 = BaroAlt/10;
+  	debug1 = sensorAlt/10;
 	  debug2 = accZ;
 	  debug3 = errI;
 	  heading = vel;
@@ -324,12 +340,6 @@ void getEstimatedAltitude(){
 
 int32_t isq(int16_t x){return x * x;}
 float fsq(float x){return x * x;}
-
-
-
-
-
-
 
 float InvSqrt (float x){ 
   union{  
@@ -340,51 +350,6 @@ float InvSqrt (float x){
   conv.i = 0x5f3759df - (conv.i >> 1); 
   return 0.5f * conv.f * (3.0f - x * conv.f * conv.f);
 } 
-
-#define UPDATE_INTERVAL 25000    // 40hz update rate (20hz LPF on acc)
-#define INIT_DELAY      4000000  // 4 sec initialization delay
-#define Kp1 0.55f                // PI observer velocity gain 
-#define Kp2 1.0f                 // PI observer position gain
-#define Ki  0.001f               // PI observer integral gain (bias cancellation)
-#define dt  (UPDATE_INTERVAL / 1000000.0f)
-
-void getEstimatedAltitude2(){
-  static uint8_t inited = 0;
-  static int16_t AltErrorI = 0;
-  static float AccScale  = 0.0f;
-  static uint32_t deadLine = INIT_DELAY;
-  int16_t AltError;
-  int16_t InstAcc;
-  int16_t Delta;
-  
-  if (currentTime < deadLine) return;
-  deadLine = currentTime + UPDATE_INTERVAL; 
-  // Soft start
-
-  if (!inited) {
-    inited = 1;
-    EstAlt = BaroAlt;
-    EstVelocity = 0;
-    AltErrorI = 0;
-    AccScale = 100 * 9.80665f / acc_1G;
-  }
-  // Estimation Error
-  AltError = BaroAlt - EstAlt; 
-  AltErrorI += AltError;
-  AltErrorI=constrain(AltErrorI,-25000,+25000);
-  // Gravity vector correction and projection to the local Z
-  //InstAcc = (accADC[YAW] * (1 - acc_1G * InvSqrt(isq(accADC[ROLL]) + isq(accADC[PITCH]) + isq(accADC[YAW])))) * AccScale + (Ki) * AltErrorI;
-  #if defined(TRUSTED_ACCZ)
-    InstAcc = (accADC[YAW] * (1 - acc_1G * InvSqrt(isq(accADC[ROLL]) + isq(accADC[PITCH]) + isq(accADC[YAW])))) * AccScale +  AltErrorI / 1000;
-  #else
-    InstAcc = AltErrorI / 1000;
-  #endif
-  
-  // Integrators
-  Delta = InstAcc * dt + (Kp1 * dt) * AltError;
-  EstAlt += (EstVelocity/5 + Delta) * (dt / 2) + (Kp2 * dt) * AltError;
-  EstVelocity += Delta*10;
-}
 
   
   
