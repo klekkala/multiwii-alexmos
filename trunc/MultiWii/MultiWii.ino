@@ -179,6 +179,8 @@ static int16_t  GPS_angle[2];            // it's the angles that must be applied
 	static int32_t BaroSonarDiff = 0; // difference between BARO and SONAR altitude
 #endif
 
+static uint8_t ThrottleAngleCorr = 100; // percentage of trottle gain if angle>0. 100 - no correction
+
 
 void blinkLED(uint8_t num, uint8_t wait,uint8_t repeat) {
   uint8_t i,r;
@@ -603,12 +605,12 @@ void loop () {
 
   if(BARO) {
     if (baroMode) {
-      // Alt PID's
+      //alexmos: new Alt PID's calculations
       error = constrain( AltHold - EstAlt, -100, 100); //  +/-1m, if more - something wrong
       errorAltitudeI += error;
-      errorAltitudeI = constrain(errorAltitudeI,-30000,30000);
+      errorAltitudeI = constrain(errorAltitudeI, -30000,30000);
       
-      PTerm = P8[PIDALT]*error/100;
+      PTerm = P8[PIDALT]*error/50;
       ITerm = ((int32_t)I8[PIDALT])*errorAltitudeI/40000;
       DTerm = D8[PIDALT]*constrain(EstVelocity, -100, 100)/100;
       
@@ -631,6 +633,13 @@ void loop () {
       rcCommand[THROTTLE] = initialThrottleHold + constrain(AltPID, -200, +200);
     }
   }
+
+  // alexmos: Gain throttle in case of inclination (only in stable mode)
+  #ifdef THROTTLE_ANGLE_CORRECTION
+  	if(accMode == 1) {
+	  	rcCommand[THROTTLE] = MINTHROTTLE + ((int32_t)(rcCommand[THROTTLE] - MINTHROTTLE)) * ThrottleAngleCorr / 100;
+	  }
+	#endif
 
 
   #if defined(GPS)

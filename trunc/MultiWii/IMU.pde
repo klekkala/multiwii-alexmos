@@ -252,6 +252,11 @@ void getEstimatedAttitude(){
     // Attitude of the cross product vector GxM
     heading = _atan2( EstG.V.X * EstM.V.Z - EstG.V.Z * EstM.V.X , EstG.V.Z * EstM.V.Y - EstG.V.Y * EstM.V.Z  ) / 10;
   #endif
+  
+  // alexmos: pre-calculate throttle correction multiplier
+  #ifdef THROTTLE_ANGLE_CORRECTION
+  	ThrottleAngleCorr = acc_1G * 100 / constrain((int16_t)EstG.V.Z, acc_1G*100/THROTTLE_ANGLE_CORRECTION, acc_1G); // 16 bit ok: 255 * 100 = 25500
+  #endif
 }
 
 
@@ -265,15 +270,14 @@ void getEstimatedAttitude(){
 /* Sensor PID values. */
 /* Tuning advice: The main target is to get the minimum settle time of 'velocity' (it should fast go to zero without oscillations)  */
 #define ACC_BARO_P 30.0f   
-#define ACC_BARO_I (ACC_BARO_P * 0.001f)
-#define ACC_BARO_D (ACC_BARO_P * 0.001f)
-#define VEL_SCALE ((1.0f - 1.0f/ACC_BARO_CMPF)/1000000.0f)
+#define ACC_BARO_I 0.03f
+#define ACC_BARO_D 0.03f
 void getEstimatedAltitude(){
   static int8_t initDone = 0;
   static float alt = 0; // cm
   static float vel = 0; // cm/sec
- 	static float err = 0, errI = 0, errPrev = 0;
-  static float accScale; // config variables
+ 	static float err = 0, errI = 0;
+  static float accScale, velScale; // config variables
   float accZ;
   int32_t sensorAlt;
   
@@ -288,6 +292,7 @@ void getEstimatedAltitude(){
 		  #endif
 		  
 	  	accScale = 9.80665f / acc_1G / 10000.0f;
+	  	velScale = (1.0f - 1.0f/ACC_BARO_CMPF)/1000000.0f;
 	  	initDone = 1;
 	  }
 	  return;
@@ -297,6 +302,7 @@ void getEstimatedAltitude(){
   #ifdef SONAR
 		// Use cross-section of SONAR and BARO altitudes, weighted by sonar erros
 		sensorAlt = (SonarAlt * (SONAR_ERROR_MAX - SonarErrors) + (BaroAlt + BaroSonarDiff) * SonarErrors)/SONAR_ERROR_MAX;
+		// TODO:  http://forum.rcdesign.ru/f123/thread221574-109.html#post3127945
   #else
    sensorAlt = BaroAlt;
   #endif
@@ -318,11 +324,10 @@ void getEstimatedAltitude(){
   vel+= (accZ - err*ACC_BARO_P - vel*ACC_BARO_D) * cycleTime * accScale;
   
   // Integrator - altitude, cm  
-  alt+= vel * cycleTime * VEL_SCALE;
+  alt+= vel * cycleTime * velScale;
 
 	// Apply ACC->BARO complementary filter
 	alt-= err;
-  errPrev = err;
   
   // Save global data for PID's
   EstAlt = alt;
