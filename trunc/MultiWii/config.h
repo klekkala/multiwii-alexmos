@@ -423,6 +423,13 @@
 * TODO: describe vars and tuning algorithm */
 #define ALT_DEBUG
 
+/* Increase average motors output according to Z-axis inclination. */
+/* Specify maximum percentage of gain (set value in range 100..150) 
+/* (avoid too big values because of non-linear throttle response) */
+#define THROTTLE_ANGLE_CORRECTION 120
+
+
+
 /**************************************/
 /****END OF CONFIGURABLE PARAMETERS****/
 /**************************************/
