@@ -1,6 +1,6 @@
 #include <avr/eeprom.h>
 
-static uint8_t checkNewConf = 149;
+static uint8_t checkNewConf = 2;
 
 struct eep_entry_t{
   void *  var;
@@ -21,6 +21,7 @@ static eep_entry_t eep_entry[] = {
 , {&yawRate, sizeof(yawRate)}
 , {&dynThrPID, sizeof(dynThrPID)}
 , {&accZero, sizeof(accZero)}
+, {&accScale, sizeof(accScale)}
 , {&magZero, sizeof(magZero)}
 , {&accTrim, sizeof(accTrim)}
 , {&activate1, sizeof(activate1)}
@@ -82,6 +83,10 @@ void checkFirstTime() {
   yawRate = 0;
   dynThrPID = 0;
   for(uint8_t i=0;i<CHECKBOXITEMS;i++) {activate1[i] = 0;activate2[i] = 0;}
+  for(uint8_t axis=0;axis<3;axis++) {
+  	accZero[axis] = 0;
+  	accScale[axis] = 0;
+  }
   accTrim[0] = 0; accTrim[1] = 0;
   powerTrigger1 = 0;
   #ifdef FLYING_WING

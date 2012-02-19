@@ -139,8 +139,7 @@ typedef union {
   t_fp_vector_def V;
 } t_fp_vector;
 
-// alexmos: atan2 in radians
-inline float _atan2rad(float y, float x) {
+int16_t _atan2(float y, float x){
   #define fp_is_neg(val) ((((byte*)&val)[3] & 0x80) != 0)
   float z = y / x;
   int16_t zi = abs(int16_t(z * 100)); 
@@ -156,11 +155,8 @@ inline float _atan2rad(float y, float x) {
    z = (PI / 2.0f) - z / (z * z + 0.28f);
    if (y_neg) z -= PI;
   }
+  z *= (180.0f / PI * 10); 
   return z;
-}
-
-int16_t _atan2(float y, float x){
-	return _atan2rad(y, x) * (180.0f / PI * 10); 
 }
 
 // Rotate Estimated vector(s) with small angle approximation, according to the gyro data
@@ -173,6 +169,7 @@ void rotateV(struct fp_vector *v,float* delta) {
 
 // alexmos: need it later
 static t_fp_vector EstG;
+static float InvG = 255;
 
 void getEstimatedAttitude(){
   uint8_t axis;
@@ -186,12 +183,12 @@ void getEstimatedAttitude(){
 #if defined(ACC_LPF_FACTOR)
   static int16_t accTemp[3];  //projection of smoothed and normalized magnetic vector on x/y/z axis, as measured by magnetometer
 #endif
-  //static uint16_t previousT;
-  //uint16_t currentT = micros();
+  static uint16_t previousT;
+  uint16_t currentT = micros();
   float scale, deltaGyroAngle[3];
 
-  scale = cycleTime * GYRO_SCALE;
-  //previousT = currentT;
+  scale = (currentT - previousT) * GYRO_SCALE;
+  previousT = currentT;
 
   // Initialization
   for (axis = 0; axis < 3; axis++) {
@@ -253,9 +250,10 @@ void getEstimatedAttitude(){
     heading = _atan2( EstG.V.X * EstM.V.Z - EstG.V.Z * EstM.V.X , EstG.V.Z * EstM.V.Y - EstG.V.Y * EstM.V.Z  ) / 10;
   #endif
   
-  // alexmos: pre-calculate throttle correction multiplier
+  // alexmos: calc some useful values
+  InvG = InvSqrt(fsq(EstG.V.X) + fsq(EstG.V.Y) + fsq(EstG.V.Z));
   #ifdef THROTTLE_ANGLE_CORRECTION
-  	ThrottleAngleCorr = acc_1G * 100 / constrain((int16_t)EstG.V.Z, acc_1G*100/THROTTLE_ANGLE_CORRECTION, acc_1G); // 16 bit ok: 255 * 100 = 25500
+  	cosZ =  EstG.V.Z * InvG * 100; // cos(angleZ) * 100
   #endif
 }
 
@@ -265,21 +263,27 @@ void getEstimatedAttitude(){
 /* It has a very good resistance to inclanations, horisontal movements, ACC drift and baro noise. */
 /* But it need fine tuning for various setups :( */
 /* Settings: */
-/* Set the ACC weight compared to BARO. Default is 300 */
-#define ACC_BARO_CMPF 300.0f
+/* Set the ACC weight compared to BARO (or SONAR). Default is 100 */
+#define ACC_BARO_CMPF 100.0f
 /* Sensor PID values. */
 /* Tuning advice: The main target is to get the minimum settle time of 'velocity' (it should fast go to zero without oscillations)  */
 #define ACC_BARO_P 30.0f   
 #define ACC_BARO_I 0.03f
 #define ACC_BARO_D 0.03f
+
+
 void getEstimatedAltitude(){
   static int8_t initDone = 0;
   static float alt = 0; // cm
   static float vel = 0; // cm/sec
- 	static float err = 0, errI = 0;
+ 	static t_fp_vector errI = {0,0,0};
   static float accScale, velScale; // config variables
-  float accZ;
+  float accZ, err, tmp;
+  static int32_t avgError = 50, avgErrorFast = 0; 
+  int16_t errA;
   int32_t sensorAlt;
+  int8_t axis;
+  int8_t sonarUsed;
   
   // get alt from sensors on sysem start
   if(!initDone) {
@@ -292,7 +296,8 @@ void getEstimatedAltitude(){
 		  #endif
 		  
 	  	accScale = 9.80665f / acc_1G / 10000.0f;
-	  	velScale = (1.0f - 1.0f/ACC_BARO_CMPF)/1000000.0f;
+	  	velScale = 1.0f/1000000.0f;
+	  	errI.V.Z = get_accZ(&errI.V);
 	  	initDone = 1;
 	  }
 	  return;
@@ -302,32 +307,44 @@ void getEstimatedAltitude(){
   #ifdef SONAR
 		// Use cross-section of SONAR and BARO altitudes, weighted by sonar erros
 		sensorAlt = (SonarAlt * (SONAR_ERROR_MAX - SonarErrors) + (BaroAlt + BaroSonarDiff) * SonarErrors)/SONAR_ERROR_MAX;
-		// TODO:  http://forum.rcdesign.ru/f123/thread221574-109.html#post3127945
+		sonarUsed = SonarErrors < SONAR_ERROR_MAX ? 1 : 0;
   #else
-   sensorAlt = BaroAlt;
+  	sonarUsed = 0;
+  	sensorAlt = BaroAlt;
   #endif
 
   
   // error between estimated alt and BARO alt
-  err = (alt - sensorAlt)/ACC_BARO_CMPF; // P term of error
-  errI+= err * ACC_BARO_I; // I term of error
-	
-  // Project ACC vector A to 'global' Z axis (estimated by gyro vector G) and correct static bias (I term of PID)
-  // Math: accZ = A * G / |G|
-  accZ = (accADC[0]*EstG.V.X + accADC[1]*EstG.V.Y + accADC[2]*EstG.V.Z) * 
-  				InvSqrt(fsq(EstG.V.X) + fsq(EstG.V.Y) + fsq(EstG.V.Z)) 
-  				- errI - acc_1G;
+  errA = alt - sensorAlt;
+  err = errA / ACC_BARO_CMPF;
+
+  // Trust more ACC if in AltHold mode and sonar is not used and average error is low
+	average(&avgErrorFast, errA, 100);
+	average(&avgError, abs(avgErrorFast), 200); // double averge to prevent signed error cancellation
+  if(baroMode && avgError < 5000 && sonarUsed == 0) { 
+  	err/= (6 - avgError/1000); // CMPF multiplyer 1..5
+  }
+  
+  // I term of error for each axis
+  // (If Z angle is not zero, we should take X and Y axis into account and correct them too.
+  // We will spread I error proportional to Cos(angle) for each axis
+  // TODO: we got "real" ACC zero in this calibration procedure and may use it to correct ACC in angle estimation, too
+  tmp = err*ACC_BARO_I*InvG;
+  for(axis=0; axis<3; axis++) {
+  	errI.A[axis]+= EstG.A[axis] * tmp; 
+  }
+  
+  // Project ACC vector A to 'global' Z axis (estimated by gyro vector G) with I term taked into account
+  // Math: accZ = (A + errI) * G / |G| - 1G
+  accZ = get_accZ(&(errI.V));
   
   // Integrator - velocity, cm/sec
   // Apply P and D terms of PID correction
-  // D term of real error is VERY noisy, so we use Dterm = vel (it will lead velocity to zero)
+  // D term of real error is VERY noisy, so we use Dterm = vel*kd (it will lead velocity to zero)
   vel+= (accZ - err*ACC_BARO_P - vel*ACC_BARO_D) * cycleTime * accScale;
   
-  // Integrator - altitude, cm  
-  alt+= vel * cycleTime * velScale;
-
-	// Apply ACC->BARO complementary filter
-	alt-= err;
+	// Integrator + apply ACC->BARO complementary filter
+	alt+= vel * cycleTime * velScale - err;
   
   // Save global data for PID's
   EstAlt = alt;
@@ -336,14 +353,26 @@ void getEstimatedAltitude(){
   
   // debug to GUI
   #ifdef ALT_DEBUG
-  	debug1 = sensorAlt/10;
-	  debug2 = accZ;
-	  debug3 = errI;
+  	debug1 = sensorAlt;
+	  debug2 = avgErrorFast;
+	  debug3 = avgError/10;
+	  //debug4 = errI.V.X;
 	  heading = vel;
 	#endif
 }
 
-int32_t isq(int16_t x){return x * x;}
+// return projection of ACC vector to global Z, with 1G subtructed
+float get_accZ(fp_vector *errI) {
+	return ((accADC[0] - errI->X) * EstG.V.X + (accADC[1] - errI->Y) * EstG.V.Y + (accADC[2] - errI->Z) * EstG.V.Z) * InvG - acc_1G;
+}
+
+// average 'curVal' by 'factor'. Result multiplyed by 10 to increase store precision.
+void average(int32_t *val, int16_t curVal, uint16_t factor) {
+	*val = (*val*factor + curVal*10)/(factor+1);
+}
+	
+
+int32_t isq(int32_t x){return x * x;}
 float fsq(float x){return x * x;}
 
 float InvSqrt (float x){ 

@@ -86,7 +86,7 @@ void serialCom() {
       for(i=0;i<3;i++) serialize16(accSmooth[i]);
       for(i=0;i<3;i++) serialize16(gyroData[i]);
       for(i=0;i<3;i++) serialize16(magADC[i]);
-      serialize16(EstAlt/10);
+      serialize16(EstAlt);
       serialize16(heading); // compass
       for(i=0;i<4;i++) serialize16(servo[i]);
       for(i=0;i<8;i++) serialize16(motor[i]);

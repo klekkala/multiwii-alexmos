@@ -146,8 +146,8 @@
    IF YOUR RECEIVER IS NOT CONCERNED, DON'T UNCOMMENT ANYTHING. Note this is mandatory for a Y6 setup on a promini
    Select the right line depending on your radio brand. Feel free to modify the order in your PPM order is different */
 //#define SERIAL_SUM_PPM         THROTTLE,YAW,ROLL,PITCH,AUX1,AUX2,AUX3,AUX4 //For Graupner/Spektrum
-//#define SERIAL_SUM_PPM         ROLL,PITCH,THROTTLE,YAW,AUX1,AUX2,AUX3,AUX4 //HK T6A
-#define SERIAL_SUM_PPM         ROLL,PITCH,THROTTLE,YAW,AUX1,AUX3,AUX2,AUX4 //HK T6A with AUX2 -> AUX3 (camera pitch control)
+#define SERIAL_SUM_PPM         ROLL,PITCH,THROTTLE,YAW,AUX1,AUX2,AUX3,AUX4 //HK T6A
+//#define SERIAL_SUM_PPM         ROLL,PITCH,THROTTLE,YAW,AUX1,AUX3,AUX2,AUX4 //HK T6A with AUX2 -> AUX3 (camera pitch control)
 //#define SERIAL_SUM_PPM         PITCH,ROLL,THROTTLE,YAW,AUX1,AUX2,AUX3,AUX4 //For some Hitec/Sanwa/Others
 
 /* The following lines apply only for Spektrum Satellite Receiver
@@ -413,21 +413,22 @@
 #define SONAR_WAIT_TIME 50
 /* If measuring takes more than this time, result treated as error. (ms) */
 #define SONAR_ERROR_TIME 150
-/* Maximum number of errors (i.e. 'sonarError' variable upper limit) */
+/* Maximum number of errors to switch to baro (integer 1..20) */
 #define SONAR_ERROR_MAX 10
 /* LPF applyed to Baro-Sonar altitude correction */
-#define BARO_SONAR_DIFF_LPF 10
-
+#define SONAR_BARO_DIFF_LPF 10
+/* In sonar mode, increase PID strength by this value (integer > 0) */
+/* Comment to disable gain */
+#define SONAR_BARO_PID_GAIN 1
 
 /* Output some vars to GUI (for PID tuning) 
 * TODO: describe vars and tuning algorithm */
 #define ALT_DEBUG
 
-/* Increase average motors output according to Z-axis inclination. */
-/* Specify maximum percentage of gain (set value in range 100..150) 
-/* (avoid too big values because of non-linear throttle response) */
-#define THROTTLE_ANGLE_CORRECTION 120
-
+/* If defined, increases average motors output according to Z-axis inclination. */
+/* Set the percentage of gain. Default is 100 */
+/* Comment to disable this correction */
+#define THROTTLE_ANGLE_CORRECTION 100
 
 
 /**************************************/
