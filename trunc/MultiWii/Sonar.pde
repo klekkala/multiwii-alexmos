@@ -88,6 +88,13 @@ inline void sonarTrigger() {
 	uint16_t curTime = millis();
 	uint16_t dTime = curTime - startTime;
 
+	// DEBUG ONLY: turn sonar on/off on the fly by PASSTHRU
+	// TODO: Remove!
+	if(passThruMode) {	
+		incError();
+		return;
+	}
+
 	// If we are waiting too long,  finish waiting and increase error counter
 	if(dTime > SONAR_MAX_TIME) {
 		incError();
@@ -103,8 +110,14 @@ inline void sonarTrigger() {
 
 		  if(dist < SONAR_MAX_DISTANCE) { // valid data received
 		    SonarAlt = dist;
-			  SonarErrors = 0; 
-				BaroSonarDiff = (BaroSonarDiff*BARO_SONAR_DIFF_LPF + SonarAlt - BaroAlt)/(BARO_SONAR_DIFF_LPF + 1);
+				BaroSonarDiff = (BaroSonarDiff*SONAR_BARO_DIFF_LPF + SonarAlt - BaroAlt)/(SONAR_BARO_DIFF_LPF + 1);
+			  
+			  if(dist < SONAR_MAX_DISTANCE - 100) {
+			  	SonarErrors = 0;
+			  } else { 
+			  	// Starting from  (MAX_DISTANCE - 1m), slowly increase error to soft switch to baro
+			  	SonarErrors = ((uint16_t)dist - SONAR_MAX_DISTANCE + 100) * SONAR_ERROR_MAX / 100;
+			  }
 		  } else {
 		  	incError();
 		  }

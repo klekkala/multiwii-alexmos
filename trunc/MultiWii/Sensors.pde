@@ -191,31 +191,59 @@ void GYRO_Common() {
 // ****************
 void ACC_Common() {
   static int32_t a[3];
+  static uint8_t curAxis = YAW; 
+  int8_t curLimit, axis; 
+  static int16_t limits[3][2] = { {0,0}, {0,0}, {0,0} };
   
   if (calibratingA>0) {
-    for (uint8_t axis = 0; axis < 3; axis++) {
+    for (axis = 0; axis < 3; axis++) {
       // Reset a[axis] at start of calibration
-      if (calibratingA == 400) a[axis]=0;
+      if (calibratingA == 400) {
+      	// Find wich axis to calibrate?
+      	if(abs(accADC[axis]) > abs(accADC[(axis+1)%3]) + abs(accADC[(axis+2)%3])) {
+      		curAxis = axis;
+      		accScale[curAxis] = 0; // re-calibrate scale, too
+      	}
+
+      	a[axis]=0;
+      }
+      	
       // Sum up 400 readings
       a[axis] +=accADC[axis];
-      // Clear global variables for next reading
-      accADC[axis]=0;
-      accZero[axis]=0;
     }
+
     // Calculate average, shift Z down by acc_1G and store values in EEPROM at end of calibration
     if (calibratingA == 1) {
-      accZero[ROLL]  = a[ROLL]/400;
-      accZero[PITCH] = a[PITCH]/400;
-      accZero[YAW]   = a[YAW]/400-acc_1G; // for nunchuk 200=1G
+      curLimit = a[curAxis] > 0 ? 0 : 1; // positive - 0, negative = 1
+      limits[curAxis][curLimit] = a[curAxis]/400;
+      
+      // If we get 2 limits for one axis, we can found precize zero and scale
+      if(limits[curAxis][0] > 0 && limits[curAxis][1] < 0) {
+      	accZero[curAxis] = (limits[curAxis][0] + limits[curAxis][1])/2;
+      	accScale[curAxis] = ((int32_t)acc_1G) * 2000 / (limits[curAxis][0] - limits[curAxis][1]);
+      } 
+      // Old (not precize) calibration for YAW only
+      else if(curAxis == YAW && curLimit == 0) {
+	      accZero[YAW]   = a[YAW]/400 - acc_1G;
+	      accZero[ROLL]  = a[ROLL]/400;
+	      accZero[PITCH] = a[PITCH]/400;
+	    }
+
       accTrim[ROLL]   = 0;
       accTrim[PITCH]  = 0;
       writeParams(); // write accZero in EEPROM
     }
     calibratingA--;
   }
-  accADC[ROLL]  -=  accZero[ROLL] ;
-  accADC[PITCH] -=  accZero[PITCH];
-  accADC[YAW]   -=  accZero[YAW] ;
+  
+	// Calibrate
+	for(axis=0;axis<3;axis++) {
+		if(accScale[axis]) {
+			accADC[axis] =  ((int32_t)(accADC[axis] - accZero[axis])) * accScale[axis] / 1000;
+		} else {
+			accADC[axis]-=  accZero[axis];
+		}
+	}
 }
 
 

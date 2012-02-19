@@ -133,6 +133,7 @@ volatile uint8_t rcFrameComplete; //for serial rc receiver Spektrum
 static int16_t gyroData[3] = {0,0,0};
 static int16_t gyroZero[3] = {0,0,0};
 static int16_t accZero[3]  = {0,0,0};
+static uint16_t accScale[3]  = {0,0,0};  // sensivity correction (1000 for acc_1G)
 static int16_t magZero[3]  = {0,0,0};
 static int16_t angle[2]    = {0,0};  // absolute angle inclination in multiple of 0.1 degree    180 deg = 1800
 static int8_t  smallAngle25 = 1;
@@ -179,7 +180,7 @@ static int16_t  GPS_angle[2];            // it's the angles that must be applied
 	static int32_t BaroSonarDiff = 0; // difference between BARO and SONAR altitude
 #endif
 
-static uint8_t ThrottleAngleCorr = 100; // percentage of trottle gain if angle>0. 100 - no correction
+static int8_t cosZ = 100; // cos(angleZ)*100
 
 
 void blinkLED(uint8_t num, uint8_t wait,uint8_t repeat) {
@@ -431,8 +432,9 @@ void loop () {
 
   static uint32_t rcTime  = 0;
   static int16_t initialThrottleHold;
-  static int16_t errorAltitudeI = 0;
+  static int32_t errorAltitudeI = 0;
   static int16_t AltHold;
+  static int16_t AltHoldCorr = 0;
   int16_t AltPID;
   
   cycleCnt++;
@@ -605,39 +607,47 @@ void loop () {
 
   if(BARO) {
     if (baroMode) {
+      // Throttle stick moved? 
+      if (abs(rcCommand[THROTTLE]-initialThrottleHold) > ALT_HOLD_DEADBAND) {
+      	// Slowly increase AltHold proportional to stick movement ( +100 throttle gives ~ +50 cm in 1 second)
+      	AltHoldCorr+= rcCommand[THROTTLE] - initialThrottleHold;
+      	if(abs(AltHoldCorr) > 500) {
+      		AltHold+= AltHoldCorr/500;
+      		AltHoldCorr%= 500;
+      	}
+      } 
+
       //alexmos: new Alt PID's calculations
       error = constrain( AltHold - EstAlt, -100, 100); //  +/-1m, if more - something wrong
       errorAltitudeI += error;
-      errorAltitudeI = constrain(errorAltitudeI, -30000,30000);
+      errorAltitudeI = constrain(errorAltitudeI, -500000, 500000);  // error 10cm hit this limits ~ 3min
       
-      PTerm = P8[PIDALT]*error/50;
-      ITerm = ((int32_t)I8[PIDALT])*errorAltitudeI/40000;
-      DTerm = D8[PIDALT]*constrain(EstVelocity, -100, 100)/100;
+      PTerm = P8[PIDALT] * error / 50; // 16 bit ok: 200 * 100 = 20000
+      ITerm = I8[PIDALT] * errorAltitudeI / 100000;
+      DTerm = ((int32_t)D8[PIDALT]) * P8[PIDALT] * constrain(EstVelocity, -100, 100) / 1000;
       
       AltPID = PTerm + ITerm - DTerm;
 
-      // Throttle stick moved? 
-      if (abs(rcCommand[THROTTLE]-initialThrottleHold) > ALT_HOLD_DEADBAND) {
-      	// Slowly increase AltHold proportional to stick movement ( +100 throttle gives +10 cm in 1 second)
-      	if(cycleCnt%300 == 0) { // ~1 times per second
-      		AltHold+= (rcCommand[THROTTLE] - initialThrottleHold)/10;
-      	}
-      } 
+      // Increase PID if sonar is used in altitude estimation
+      #if defined(SONAR) && defined(SONAR_BARO_PID_GAIN)
+      	AltPID+=  constrain(AltPID, -200, 200) * (SONAR_ERROR_MAX - SonarErrors) / SONAR_ERROR_MAX * SONAR_BARO_PID_GAIN;
+      #endif
+       	
       
       // Debug PID controller to GUI
       #ifdef ALT_DEBUG
-        debug4 = AltPID;
+        debug4 = AltPID * 10;
       #endif
 
       	
-      rcCommand[THROTTLE] = initialThrottleHold + constrain(AltPID, -200, +200);
+      rcCommand[THROTTLE] = initialThrottleHold + constrain(AltPID, -100, 200);
     }
   }
 
   // alexmos: Gain throttle in case of inclination (only in stable mode)
   #ifdef THROTTLE_ANGLE_CORRECTION
-  	if(accMode == 1) {
-	  	rcCommand[THROTTLE] = MINTHROTTLE + ((int32_t)(rcCommand[THROTTLE] - MINTHROTTLE)) * ThrottleAngleCorr / 100;
+  	if(accMode == 1 && cosZ > 0) {
+	  	rcCommand[THROTTLE]+= constrain((int16_t)(((int32_t)rcCommand[THROTTLE]) * (100 - cosZ) * THROTTLE_ANGLE_CORRECTION / 10000),  0, 200);
 	  }
 	#endif
 
