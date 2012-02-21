@@ -106,7 +106,6 @@ void computeIMU () {
 /* Increasing this value would reduce and delay Magnetometer influence on the output of the filter*/
 /* Default WMC value: n/a*/
 #define GYR_CMPFM_FACTOR 500.0f
-//#define GYR_CMPFM_FACTOR 0.1f // DEBUG: test heading by MAG only (without gyro)
 
 //****** end of advanced users settings *************
 
