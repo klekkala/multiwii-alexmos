@@ -404,7 +404,7 @@
 #define SONAR_READ 12 // PIN to read response pulse, 12 or 8
 //#define SONAR_DEBUG // output some data to GUI (replacing MAG and debug variables)
 /* Maximum measuring distance, cm. Set it 10% lower than specified in datasheet */
-#define SONAR_MAX_DISTANCE 400
+#define SONAR_MAX_DISTANCE 350
 /* Maximum measuring time, ms 
 * If no signal received after this time, start next measure */
 #define SONAR_MAX_TIME 300

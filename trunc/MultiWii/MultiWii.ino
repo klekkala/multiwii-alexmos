@@ -609,11 +609,11 @@ void loop () {
     if (baroMode) {
       // Throttle stick moved? 
       if (abs(rcCommand[THROTTLE]-initialThrottleHold) > ALT_HOLD_DEADBAND) {
-      	// Slowly increase AltHold proportional to stick movement ( +100 throttle gives ~ +50 cm in 1 second)
+      	// Slowly increase AltHold proportional to stick movement ( +100 throttle gives ~ +20 cm in 1 second)
       	AltHoldCorr+= rcCommand[THROTTLE] - initialThrottleHold;
-      	if(abs(AltHoldCorr) > 500) {
-      		AltHold+= AltHoldCorr/500;
-      		AltHoldCorr%= 500;
+      	if(abs(AltHoldCorr) > 1000) {
+      		AltHold+= AltHoldCorr/1000;
+      		AltHoldCorr%= 1000;
       	}
       } 
 
@@ -628,7 +628,7 @@ void loop () {
       
       AltPID = PTerm + ITerm - DTerm;
 
-      // Increase PID if sonar is used in altitude estimation
+      // Increase PID if sonar is used
       #if defined(SONAR) && defined(SONAR_BARO_PID_GAIN)
       	AltPID+=  constrain(AltPID, -200, 200) * (SONAR_ERROR_MAX - SonarErrors) / SONAR_ERROR_MAX * SONAR_BARO_PID_GAIN;
       #endif
