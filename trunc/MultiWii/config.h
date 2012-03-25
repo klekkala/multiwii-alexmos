@@ -7,7 +7,7 @@
 //#define MINTHROTTLE 1300 // for Turnigy Plush ESCs 10A
 //#define MINTHROTTLE 1120 // for Super Simple ESCs 10A
 //#define MINTHROTTLE 1220
-#define MINTHROTTLE 1150 
+#define MINTHROTTLE 1100 
 
 /* The type of multicopter */
 //#define GIMBAL
@@ -24,14 +24,14 @@
 //#define OCTOFLATX
 //#define FLYING_WING //experimental
 
-//#define YAW_DIRECTION 1 // if you want to reverse the yaw correction direction
-#define YAW_DIRECTION -1
+#define YAW_DIRECTION 1 // if you want to reverse the yaw correction direction
+//#define YAW_DIRECTION -1
 
-//#define I2C_SPEED 400000L     //100kHz normal mode, this value must be used for a genuine WMP
+//#define I2C_SPEED 100000L     //100kHz normal mode, this value must be used for a genuine WMP
 #define I2C_SPEED 400000L   //400kHz fast mode, it works only with some WMP clones
 
 //enable internal I2C pull ups
-#define INTERNAL_I2C_PULLUPS
+//#define INTERNAL_I2C_PULLUPS
 
 
 //****** advanced users settings   *************
@@ -74,7 +74,7 @@
 
 /* introduce a deadband around the stick center
    Must be greater than zero, comment if you dont want a deadband on roll, pitch and yaw */
-#define DEADBAND 30
+#define DEADBAND 5
 
 /* deadband around throttle setpoint in BARO mode  */
 #define ALT_HOLD_DEADBAND 50
@@ -89,12 +89,12 @@
 //#define FREEIMUv03      // FreeIMU v0.3 and v0.3.1
 //#define FREEIMUv035     // FreeIMU v0.3.5 no baro
 //#define FREEIMUv035_MS  // FreeIMU v0.3.5_MS                                                <- confirmed by Alex
-//#define FREEIMUv035_BMP // FreeIMU v0.3.5_BMP
+#define FREEIMUv035_BMP // FreeIMU v0.3.5_BMP
 //#define PIPO            // 9DOF board from erazz
 //#define QUADRINO        // full FC board 9DOF+baro board from witespy  with BMP085 baro     <- confirmed by Alex
 //#define QUADRINO_ZOOM   // full FC board 9DOF+baro board from witespy  second edition       <- confirmed by Alex
-#define ALLINONE        // full FC board or standalone 9DOF+baro board from CSG_EU
-#define BMA180_ADDRESS 0x82
+//#define ALLINONE        // full FC board or standalone 9DOF+baro board from CSG_EU
+//#define BMA180_ADDRESS 0x82
 //#define AEROQUADSHIELDv2
 //#define ATAVRSBIN1      // Atmel 9DOF (Contribution by EOSBandi). requires 3.3V power.
 //#define SIRIUS          // Sirius Navigator IMU                                             <- confirmed by Alex
@@ -146,8 +146,8 @@
    IF YOUR RECEIVER IS NOT CONCERNED, DON'T UNCOMMENT ANYTHING. Note this is mandatory for a Y6 setup on a promini
    Select the right line depending on your radio brand. Feel free to modify the order in your PPM order is different */
 //#define SERIAL_SUM_PPM         THROTTLE,YAW,ROLL,PITCH,AUX1,AUX2,AUX3,AUX4 //For Graupner/Spektrum
-#define SERIAL_SUM_PPM         ROLL,PITCH,THROTTLE,YAW,AUX1,AUX2,AUX3,AUX4 //HK T6A
-//#define SERIAL_SUM_PPM         ROLL,PITCH,THROTTLE,YAW,AUX1,AUX3,AUX2,AUX4 //HK T6A with AUX2 -> AUX3 (camera pitch control)
+//#define SERIAL_SUM_PPM         ROLL,PITCH,THROTTLE,YAW,AUX1,AUX2,AUX3,AUX4 //HK T6A
+#define SERIAL_SUM_PPM         ROLL,PITCH,THROTTLE,YAW,AUX1,AUX3,AUX2,AUX4 //HK T6A with AUX2 -> AUX3 (camera pitch control)
 //#define SERIAL_SUM_PPM         PITCH,ROLL,THROTTLE,YAW,AUX1,AUX2,AUX3,AUX4 //For some Hitec/Sanwa/Others
 
 /* The following lines apply only for Spektrum Satellite Receiver
@@ -195,14 +195,14 @@
    On promini board, it is not compatible with config with 6 motors or more
    Uncomment the first line to activate it */
 #define SERVO_TILT
-#define TILT_PITCH_MIN    1020    //servo travel min, don't set it below 1020
-#define TILT_PITCH_MAX    2000    //servo travel max, max value=2000
+#define TILT_PITCH_MIN    1100    //servo travel min, don't set it below 1020
+#define TILT_PITCH_MAX    1900    //servo travel max, max value=2000
 #define TILT_PITCH_MIDDLE 1500    //servo neutral value
-#define TILT_PITCH_PROP   10      //servo proportional (tied to angle) ; can be negative to invert movement
-#define TILT_ROLL_MIN     1020
-#define TILT_ROLL_MAX     2000
+#define TILT_PITCH_PROP   20      //servo proportional (tied to angle) ; can be negative to invert movement
+#define TILT_ROLL_MIN     1120
+#define TILT_ROLL_MAX     1900
 #define TILT_ROLL_MIDDLE  1500
-#define TILT_ROLL_PROP    10
+#define TILT_ROLL_PROP    -20
 
 /* interleaving delay in micro seconds between 2 readings WMP/NK in a WMP+NK config
    if the ACC calibration time is very long (20 or 30s), try to increase this delay up to 4000
@@ -214,11 +214,11 @@
    with R1=33k and R2=51k
    vbat = [0;1023]*16/VBATSCALE */
 #define VBAT              // comment this line to suppress the vbat code
-#define VBATSCALE     124 // change this value if readed Battery voltage is different than real voltage
+#define VBATSCALE     103 // change this value if readed Battery voltage is different than real voltage
 #define VBATLEVEL1_3S 107 // 10,7V
 #define VBATLEVEL2_3S 103 // 10,3V
 #define VBATLEVEL3_3S 99  // 9.9V
-#define NO_VBAT       16 // Avoid beeping without any battery
+#define NO_VBAT       20 // Avoid beeping without any battery
 
 /* when there is an error on I2C bus, we neutralize the values during a short time. expressed in microseconds
    it is relevent only for a conf with at least a WMP */
@@ -230,7 +230,7 @@
 
 /* this is the maximum value for the ESCs at full power
    this value can be increased up to 2000 */
-#define MAXTHROTTLE 1950
+#define MAXTHROTTLE 2000
 
 /* This is the speed of the serial interface. 115200 kbit/s is the best option for a USB connection.*/
 #define SERIAL_COM_SPEED 115200
@@ -389,10 +389,10 @@
 #define THROTTLE_EXPO
 /* Throttle value just before copter start flying (expo zero point will be here) */
 /* Should be measured in GUI with full copter load. */
-#define THROTTLE_HOVER 1550
+#define THROTTLE_HOVER 1400
 /* You can shift hover point to the begining of the throttle range to use more of remaining range to fly */
 /* SHIFT_HOVER=THROTTLE_HOVER - no shift */
-#define SHIFT_HOVER THROTTLE_HOVER
+#define SHIFT_HOVER 1400
 
 #define MINCHECK 1150
 #define MAXCHECK 1850
@@ -404,32 +404,42 @@
 #define SONAR_READ 12 // PIN to read response pulse, 12 or 8
 //#define SONAR_DEBUG // output some data to GUI (replacing MAG and debug variables)
 /* Maximum measuring distance, cm. Set it 10% lower than specified in datasheet */
-#define SONAR_MAX_DISTANCE 350
-/* Maximum measuring time, ms 
-* If no signal received after this time, start next measure */
-#define SONAR_MAX_TIME 300
-/* Pause between measures, ms. 
-* (recomended 50ms to skip echo from previous measure) */
-#define SONAR_WAIT_TIME 50
-/* If measuring takes more than this time, result treated as error. (ms) */
-#define SONAR_ERROR_TIME 150
+#define SONAR_MAX_DISTANCE 300
 /* Maximum number of errors to switch to baro (integer 1..20) */
 #define SONAR_ERROR_MAX 10
-/* LPF applyed to Baro-Sonar altitude correction */
-#define SONAR_BARO_DIFF_LPF 10
 /* In sonar mode, increase PID strength by this value (integer > 0) */
 /* Comment to disable gain */
 #define SONAR_BARO_PID_GAIN 1
 
 /* Output some vars to GUI (for PID tuning) 
 * TODO: describe vars and tuning algorithm */
-#define ALT_DEBUG
+//#define ALT_DEBUG
 
-/* If defined, increases average motors output according to Z-axis inclination. */
-/* Set the percentage of gain. Default is 100 */
-/* Comment to disable this correction */
-#define THROTTLE_ANGLE_CORRECTION 100
+/* Correct throttle according to Z-axis inclination */
+/* Default is 100. Don't set above 200 */
+/* Set to 0 to disable this correction */
+#define THROTTLE_ANGLE_CORRECTION 120
+/* Correct throttle to compensate aerodynamic lifting force and lateral wind (positive or negative, depending on speed and inclination) */
+/* Default is 200. */ 
+#define THROTTLE_WIND_CORRECTION 200
 
+
+/* alexmos: Optical Flow sensor for position hold. */
+/* VEL pids (P and D) are used to control position. Works only in LEVEL mode. */
+//#define OPTFLOW ADNS_5050
+/* SPI pins for sensor connection */
+/* (These pins are free if SumPPM used) */
+#define OF_SCLK PITCHPIN
+#define OF_SDIO YAWPIN
+#define OF_NCS  ROLLPIN
+/* Lense focal distance, mm (set it for your own lense) */
+#define OF_FOCAL_DIST 6
+/* Deadband for ROLL,PITCH sticks where OPTFLOW is enabled. Max value 100 */
+#define OF_DEADBAND 50
+/* Enable/disable mode in config, because currently there is no switch in GUI */
+#define OF_MODE 1
+/* Debug to GUI */
+#define OF_DEBUG
 
 /**************************************/
 /****END OF CONFIGURABLE PARAMETERS****/

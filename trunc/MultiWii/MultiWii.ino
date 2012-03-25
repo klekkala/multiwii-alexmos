@@ -11,6 +11,7 @@ December  2011     V1.dev
 #include "config.h"
 #include "def.h"
 #include <avr/pgmspace.h>
+#include "OpticalFlow.h"
 #define   VERSION  19
 
 
@@ -74,9 +75,9 @@ static uint8_t  okToArm = 0;
 static uint8_t  rcOptions1,rcOptions2;
 static int32_t  pressure;
 static int32_t  BaroAlt;
+static int32_t	BaroAltGround; // baro for 'ground level'
 static int32_t  EstVelocity;
 static int32_t  EstAlt;             // in cm
-static int16_t  EstAcc;             // in sensor's values
 static uint8_t  buzzerState = 0;
   
 //for log
@@ -177,10 +178,11 @@ static int16_t  GPS_angle[2];            // it's the angles that must be applied
 #ifdef SONAR
 	static int16_t SonarAlt = 0; // distance, cm (0..SONAR_MAX_DISTANCE)
 	static uint8_t SonarErrors = 0; // errors count (0..SONAR_ERROR_MAX). 
-	static int32_t BaroSonarDiff = 0; // difference between BARO and SONAR altitude
 #endif
 
 static int8_t cosZ = 100; // cos(angleZ)*100
+static int16_t throttleAngleCorrection = 0; // correction oh throttle in lateral wind
+static uint8_t  buzzerFreq;         //delay between buzzer ring
 
 
 void blinkLED(uint8_t num, uint8_t wait,uint8_t repeat) {
@@ -201,7 +203,6 @@ void annexCode() { //this code is excetuted at each loop and won't interfere wit
 #if defined(LCD_TELEMETRY)
   static uint16_t telemetryTimer = 0, telemetryAutoTimer = 0, psensorTimer = 0;
 #endif
-  static uint8_t  buzzerFreq;         //delay between buzzer ring
   uint8_t axis,prop1,prop2;
 #if (POWERMETER == 2)
   uint16_t pMeterRaw;     //used for current reading
@@ -278,6 +279,20 @@ void annexCode() { //this code is excetuted at each loop and won't interfere wit
   }
   #endif
 
+  if (buzzerFreq) {
+    if (buzzerState && (currentTime > buzzerTime + 250000) ) {
+      buzzerState = 0;
+      BUZZERPIN_OFF;
+      buzzerTime = currentTime;
+    } else if ( !buzzerState && (currentTime > (buzzerTime + (2000000>>buzzerFreq))) ) {
+      buzzerState = 1;
+      BUZZERPIN_ON;
+      buzzerTime = currentTime;
+    }
+  } else if(buzzerState) {
+  	buzzerState = 0; BUZZERPIN_OFF;
+  }
+
   #if defined(VBAT)
     static uint8_t ind;
     uint16_t vbatRaw = 0;
@@ -294,7 +309,7 @@ void annexCode() { //this code is excetuted at each loop and won't interfere wit
     #endif
                        )  || (NO_VBAT>vbat)                              ) // ToLuSe
     {                                          //VBAT ok AND powermeter ok, buzzer off
-      buzzerFreq = 0; buzzerState = 0; BUZZERPIN_OFF;
+      buzzerFreq = 0; 
     #if defined(POWERMETER)
     } else if (pMeter[PMOTOR_SUM] > pAlarm) {                             // sound alarm for powermeter
       buzzerFreq = 4;
@@ -302,17 +317,6 @@ void annexCode() { //this code is excetuted at each loop and won't interfere wit
     } else if (vbat>VBATLEVEL2_3S) buzzerFreq = 1;
     else if (vbat>VBATLEVEL3_3S)   buzzerFreq = 2;
     else                           buzzerFreq = 4;
-    if (buzzerFreq) {
-      if (buzzerState && (currentTime > buzzerTime + 250000) ) {
-        buzzerState = 0;
-        BUZZERPIN_OFF;
-        buzzerTime = currentTime;
-      } else if ( !buzzerState && (currentTime > (buzzerTime + (2000000>>buzzerFreq))) ) {
-        buzzerState = 1;
-        BUZZERPIN_ON;
-        buzzerTime = currentTime;
-      }
-    }
   #endif
 
   if ( (calibratingA>0 && (ACC || nunchuk) ) || (calibratingG>0) ) {  // Calibration phasis
@@ -366,11 +370,6 @@ void annexCode() { //this code is excetuted at each loop and won't interfere wit
       LEDPIN_TOGGLE;
     }
   #endif
-
-  // alexmos: ping sonar
-  #ifdef SONAR
-  	sonarTrigger();
-  #endif
 }
 
 
@@ -391,8 +390,13 @@ void setup() {
   #if defined(SONAR)
   	initSonar();
   #endif
-  //alexmos: wait 3 seconds before start calibrating
-  delay(3000);
+  
+  #if defined(OPTFLOW)
+  	initOptflow();
+  #endif
+  
+  //alexmos: wait 1 seconds before start calibrating
+  delay(1000);
   previousTime = micros();
   #if defined(GIMBAL)
    calibratingA = 400;
@@ -480,6 +484,7 @@ void loop () {
       } else if ((activate1[BOXARM] > 0) || (activate2[BOXARM] > 0)) {
         if ( ((rcOptions1 & activate1[BOXARM]) || (rcOptions2 & activate2[BOXARM])) && okToArm ) {
           armed = 1;
+          BaroAltGround = BaroAlt;
           headFreeModeHold = heading;
         } else if (armed) armed = 0;
         rcDelayCommand = 0;
@@ -488,6 +493,7 @@ void loop () {
       } else if ( (rcData[YAW] > MAXCHECK || rcData[ROLL] > MAXCHECK) && rcData[PITCH] < MAXCHECK && armed == 0 && calibratingG == 0 && calibratedACC == 1) {
         if (rcDelayCommand == 20) {
           armed = 1;
+          BaroAltGround = BaroAlt;
           headFreeModeHold = heading;
         }
      #ifdef LCD_TELEMETRY_AUTO
@@ -615,39 +621,41 @@ void loop () {
       		AltHold+= AltHoldCorr/1000;
       		AltHoldCorr%= 1000;
       	}
+        buzzerFreq = 1; // beep buzzer 1Hz
       } 
 
       //alexmos: new Alt PID's calculations
-      error = constrain( AltHold - EstAlt, -100, 100); //  +/-1m, if more - something wrong
-      errorAltitudeI += error;
-      errorAltitudeI = constrain(errorAltitudeI, -500000, 500000);  // error 10cm hit this limits ~ 3min
-      
-      PTerm = P8[PIDALT] * error / 50; // 16 bit ok: 200 * 100 = 20000
-      ITerm = I8[PIDALT] * errorAltitudeI / 100000;
-      DTerm = ((int32_t)D8[PIDALT]) * P8[PIDALT] * constrain(EstVelocity, -100, 100) / 1000;
-      
-      AltPID = PTerm + ITerm - DTerm;
+      if(cosZ > 50) { // apply Alt correction only if inclination angle < 60 (skip in aerobatics)
+	      error = constrain( AltHold - EstAlt, -100, 100); //  +/-1m, if more - something wrong
+	      errorAltitudeI += error;
+	      errorAltitudeI = constrain(errorAltitudeI, -1000000, 1000000); 
+	      
+	      // AltPID = PTerm - DTerm
+	      // 16 bit ok: 255 * 100 = 25500
+	      AltPID = P8[PIDALT] * error / 50 - D8[PIDALT] * constrain(EstVelocity, -100, 100) / 10;
+	
+	      // Increase PID if sonar is used
+	      #if defined(SONAR) && defined(SONAR_BARO_PID_GAIN)
+	      	AltPID+=  constrain(AltPID, -200, 200) * (SONAR_ERROR_MAX - SonarErrors) / SONAR_ERROR_MAX * SONAR_BARO_PID_GAIN;
+	      #endif
 
-      // Increase PID if sonar is used
-      #if defined(SONAR) && defined(SONAR_BARO_PID_GAIN)
-      	AltPID+=  constrain(AltPID, -200, 200) * (SONAR_ERROR_MAX - SonarErrors) / SONAR_ERROR_MAX * SONAR_BARO_PID_GAIN;
-      #endif
-       	
-      
-      // Debug PID controller to GUI
-      #ifdef ALT_DEBUG
-        debug4 = AltPID * 10;
-      #endif
+	      // ITerm is not included in sonar PID gain
+	      AltPID+= (int16_t)(I8[PIDALT] * errorAltitudeI / 100000);
 
-      	
-      rcCommand[THROTTLE] = initialThrottleHold + constrain(AltPID, -100, 200);
+	      rcCommand[THROTTLE] = initialThrottleHold + constrain(AltPID, -100, 200);
+
+	      // Debug PID controller to GUI
+	      #ifdef ALT_DEBUG
+	        debug4 = AltPID * 10;
+	      #endif
+	    } 
     }
   }
 
   // alexmos: Gain throttle in case of inclination (only in stable mode)
-  #ifdef THROTTLE_ANGLE_CORRECTION
+  #if THROTTLE_ANGLE_CORRECTION > 0
   	if(accMode == 1 && cosZ > 0) {
-	  	rcCommand[THROTTLE]+= constrain((int16_t)(((int32_t)rcCommand[THROTTLE]) * (100 - cosZ) * THROTTLE_ANGLE_CORRECTION / 10000),  0, 200);
+	  	rcCommand[THROTTLE]+= throttleAngleCorrection;
 	  }
 	#endif
 
@@ -663,11 +671,46 @@ void loop () {
     }
   #endif
 
+  // alexmos: position hold with Optical Flow sensor
+	static int16_t optflow_angle[2] = { 0, 0 };
+  #ifdef OPTFLOW
+		//static int32_t optflowErrorI[2] = { 0, 0 };
+
+	  // enable OPTFLOW only in level mode and if GPS is not used
+	  if(optflowMode && abs(rcCommand[ROLL]) < OF_DEADBAND && abs(rcCommand[PITCH]) < OF_DEADBAND
+	  			&& GPSModeHome == 0) {
+			// Read sensor every cycle (internal buffer holds only 127 counts)
+			optflow_update(); // 
+	  	
+			// Do calculations every 8th cycle (~30Hz)
+			if(cycleCnt&4) {
+				getEstHVel();
+		  	
+		  	for(axis=0; axis<2; axis++) {
+		  		//optflowErrorI[axis]+= EstHVel[axis];
+		  		//optflowErrorI[axis] = constrain(optflowErrorI[axis], -100000, 100000);
+		  		
+		  		optflow_angle[axis] = constrain(EstHVel[axis] * P8[PIDVEL] / 50  // 16 bit ok: 200 * 100 = 20000
+		  			//+ (int16_t)(I8[PIDVEL] * optflowErrorI[axis] / 1000)
+		  			- constrain(EstHAcc[axis], -100, 100) * D8[PIDVEL] / 50  // 16 bit ok: 100*200 = 20000
+		  		, -300, 300) * (OF_DEADBAND - abs(rcCommand[axis])) / OF_DEADBAND; 
+		  		// correction softly disabled near deadband limits
+		  	}
+		  	#ifdef OF_DEBUG
+		  		debug4 = optflow_angle[0];
+		  	#endif
+			}
+	  } else {
+	  	optflow_angle[0] = 0; 
+	  	optflow_angle[1] = 0;
+	  }
+	#endif
+  
   //**** PITCH & ROLL & YAW PID ****    
   for(axis=0;axis<3;axis++) {
     if (accMode == 1 && axis<2 ) { //LEVEL MODE
       // 50 degrees max inclination
-      errorAngle = constrain(2*rcCommand[axis] + GPS_angle[axis],-500,+500) - angle[axis] + accTrim[axis]; //16 bits is ok here
+      errorAngle = constrain(2*rcCommand[axis] - GPS_angle[axis] - optflow_angle[axis],-500,+500) - angle[axis] + accTrim[axis]; //16 bits is ok here
       #ifdef LEVEL_PDF
         PTerm      = -(int32_t)angle[axis]*P8[PIDLEVEL]/100 ;
       #else  
@@ -678,7 +721,7 @@ void loop () {
       ITerm              = ((int32_t)errorAngleI[axis]*I8[PIDLEVEL])>>12;            //32 bits is needed for calculation:10000*I8 could exceed 32768   16 bits is ok for result
     } else { //ACRO MODE or YAW axis
       if (abs(rcCommand[axis])<350) error =          rcCommand[axis]*10*8/P8[axis] ; //16 bits is needed for calculation: 350*10*8 = 28000      16 bits is ok for result if P8>2 (P>0.2)
-                               else error = (int32_t)rcCommand[axis]*10*8/P8[axis] ; //32 bits is needed for calculation: 500*5*10*8 = 200000   16 bits is ok for result if P8>2 (P>0.2)
+                               else error = ((int32_t)rcCommand[axis])*10*8/P8[axis] ; //32 bits is needed for calculation: 500*5*10*8 = 200000   16 bits is ok for result if P8>2 (P>0.2)
       error -= gyroData[axis];
 
       PTerm = rcCommand[axis];
@@ -688,17 +731,21 @@ void loop () {
       ITerm = (errorGyroI[axis]/125*I8[axis])>>6;                                   //16 bits is ok here 16000/125 = 128 ; 128*250 = 32000
     }
     if (abs(gyroData[axis])<160) PTerm -=          gyroData[axis]*dynP8[axis]/10/8; //16 bits is needed for calculation   160*200 = 32000         16 bits is ok for result
-                            else PTerm -= (int32_t)gyroData[axis]*dynP8[axis]/10/8; //32 bits is needed for calculation   
+                            else PTerm -= ((int32_t)gyroData[axis])*dynP8[axis]/10/8; //32 bits is needed for calculation   
 
-    delta          = gyroData[axis] - lastGyro[axis];                               //16 bits is ok here, the dif between 2 consecutive gyro reads is limited to 800
-    lastGyro[axis] = gyroData[axis];
-    deltaSum       = delta1[axis]+delta2[axis]+delta;
-    delta2[axis]   = delta1[axis];
-    delta1[axis]   = delta;
- 
-    if (abs(deltaSum)<640) DTerm = (deltaSum*dynD8[axis])>>5;                       //16 bits is needed for calculation 640*50 = 32000           16 bits is ok for result 
-                      else DTerm = ((int32_t)deltaSum*dynD8[axis])>>5;              //32 bits is needed for calculation
-                      
+    if(axis < 2) { // except YAW axis, because it's correction very slow
+	    delta          = gyroData[axis] - lastGyro[axis];                               //16 bits is ok here, the dif between 2 consecutive gyro reads is limited to 800
+	    lastGyro[axis] = gyroData[axis];
+	    deltaSum       = delta1[axis]+delta2[axis]+delta;
+	    delta2[axis]   = delta1[axis];
+	    delta1[axis]   = delta;
+	 
+	    if (abs(deltaSum)<640) DTerm = (deltaSum*dynD8[axis])>>5;                       //16 bits is needed for calculation 640*50 = 32000           16 bits is ok for result 
+	                      else DTerm = ((int32_t)deltaSum*dynD8[axis])>>5;              //32 bits is needed for calculation
+		} else {
+			DTerm = 0;
+		}
+		                      
     axisPID[axis] =  PTerm + ITerm - DTerm;
   }
 

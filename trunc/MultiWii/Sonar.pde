@@ -32,6 +32,20 @@ Note:
 #endif
 
 
+/* Pause between measures, ms. 
+* (recomended 50ms to skip echo from previous measure) */
+#define SONAR_WAIT_TIME 50
+
+/* Maximum measuring time, ms 
+* If no signal received after this time, start next measure */
+#define SONAR_MAX_TIME 300
+
+/* If measuring takes more than this time, result treated as error. (ms) */
+#define SONAR_ERROR_TIME 150
+
+
+/*************************************************************************/
+
 static uint16_t startTime = 0; // 0 - finished, >0 - in progress
 volatile uint8_t state = 0; // 0 - idle, 1 - measuring, 2 - pause before next measure
 volatile uint16_t sonarData = 0; // measured time, us
@@ -84,16 +98,17 @@ inline void incError() {
 }	
 
 // Trigger sonar measure and calculate distance
-inline void sonarTrigger() {
-	uint16_t curTime = millis();
-	uint16_t dTime = curTime - startTime;
-
-	// DEBUG ONLY: turn sonar on/off on the fly by PASSTHRU
-	// TODO: Remove!
-	if(passThruMode) {	
+inline void sonarUpdate() {
+	// Turn sonar on/off on the fly by PASSTHRU mode
+	// Turn off if inclination angle > 60
+	if(passThruMode || cosZ < 50) {	
 		incError();
 		return;
 	}
+
+	uint16_t curTime = millis();
+	uint16_t dTime = curTime - startTime;
+
 
 	// If we are waiting too long,  finish waiting and increase error counter
 	if(dTime > SONAR_MAX_TIME) {
@@ -110,13 +125,14 @@ inline void sonarTrigger() {
 
 		  if(dist < SONAR_MAX_DISTANCE) { // valid data received
 		    SonarAlt = dist;
-				BaroSonarDiff = (BaroSonarDiff*SONAR_BARO_DIFF_LPF + SonarAlt - BaroAlt)/(SONAR_BARO_DIFF_LPF + 1);
 			  
-			  if(dist < SONAR_MAX_DISTANCE - 100) {
+			  // trusted height depends on distance and angle. Above it, slowly increase errors
+			  uint16_t limit = (uint16_t)(cosZ - 50)*(uint16_t)(SONAR_MAX_DISTANCE-100)/50; // 16 bit ok: 50 * 1000max = 50000max
+			  if(dist < limit) {
 			  	SonarErrors = 0;
 			  } else { 
-			  	// Starting from  (MAX_DISTANCE - 1m), slowly increase error to soft switch to baro
-			  	SonarErrors = ((uint16_t)dist - SONAR_MAX_DISTANCE + 100) * SONAR_ERROR_MAX / 100;
+			  	SonarErrors = (dist - limit) * SONAR_ERROR_MAX / 100;  // 16 bit ok: 1000max * 50max = 50000max
+			  	if(SonarErrors > SONAR_ERROR_MAX) SonarErrors =  SONAR_ERROR_MAX;
 			  }
 		  } else {
 		  	incError();
