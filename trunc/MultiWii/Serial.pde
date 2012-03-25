@@ -118,7 +118,7 @@ void serialCom() {
       serialize8(vbat);
 
       // alexmos: use of external debug variables
-      #if !defined(ALT_DEBUG) && !defined(SONAR_DEBUG)
+      #if !defined(ALT_DEBUG) && !defined(SONAR_DEBUG) && !defined(OF_DEBUG)
 	      debug1 = BaroAlt/10;
 	      debug2 = i2c_errors_count;
 	      debug3 = annex650_overrun_count;
@@ -136,7 +136,7 @@ void serialCom() {
       serialize8('O');
       for(i=0;i<3;i++) serialize16(accSmooth[i]);
       for(i=0;i<3;i++) serialize16(gyroData[i]);
-      serialize16(EstAlt*10.0f);
+      serialize16(EstAlt*10);
       serialize16(heading); // compass - 16 bytes
       for(i=0;i<2;i++) serialize16(angle[i]); //20
       for(i=0;i<6;i++) serialize16(motor[i]); //32
