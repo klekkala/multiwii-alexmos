@@ -5,7 +5,8 @@
 static uint16_t scale;
 
 /* Sensor's row data accumulators */
-static int16_t sum_dx = 0, sum_dy = 0, sum_squal = 0;
+static int16_t sum_dx = 0, sum_dy = 0;
+static uint16_t sum_squal = 0;
 static uint8_t cnt;
 
 
@@ -13,7 +14,7 @@ static uint8_t cnt;
 inline void optflow_get() {
 	optflow_pos[1] = sum_dx * scale;
 	optflow_pos[0] = sum_dy * scale;
-	optflow_squal = (sum_squal/cnt)<<1; // average and convert range to 0..255
+	optflow_squal = sum_squal/cnt; // average
 
 	// clear accumulated displacement
 	sum_dx = 0; sum_dy = 0; sum_squal = 0; cnt = 0;

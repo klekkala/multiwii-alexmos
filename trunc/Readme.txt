@@ -3,6 +3,13 @@ There is 1-second pause before sensor calibration on startup. You have time to t
 after switching power to keep  ABSOLUTELY IMMOVABLE while calibrating gyroscope.
 Precise gyro = stable flight!
 
+New in r17:
+
+- Added position hold mode with optical flow sensor ADNS-5050. 
+	It's enabled by default and start working in LEVEL mode only when sticks in their neutral position.
+	To configure, see config.h and tune VEL PID's in GUI (my setup: P=5, I=0.010, D=5)
+  Test video: http://www.youtube.com/watch?v=rdZnxTz1Y_g
+
 
 New in r16:
 
@@ -21,14 +28,14 @@ New in r16:
   - it is now invariant on ACC sensor range (tuning for various sensors not required)
   - calculations slightly optimized
 
-- Sonar may be turned off on the fly by activating PASSTHRU mode (AltHold algorythm use only baro)
+- Sonar may be turned off on the fly by activating PASSTHRU mode (AltHold algorythm will switch to baro)
 
 - Sonar is stricted by baro: it should not go outside +-3m window in case of sonar errors.
   (sonar is VERY sensitive to noise in 5V-power line, don't connect it in parallel with servos without noise filter!)
 
 - Experimental: added throttle correction to compensate altitude drop due to Z-axis inclination.
   Aerodynamic lifting force (positive or negative) and lateral wind also taked into account.
-  (It has low processor-cost because pre-calculated values used)
+  (It has low processor-cost because pre-calculated values are used)
 
 
 New in r15:
@@ -49,7 +56,7 @@ OTHER DIFFERENCES BETWEEN OFICIAL MULTIWII FIRMWARE v1.9:
   As a drawback, very precise ACC calibrarion is required (but there is some kind of auto-calibration for ACC in flight)
 
 -	Altitude hold algorytm uses stronger PID's to keep altitude in case of strong disturbances and in fast flight.
-  For my setup, Alt P=10, Alt I=0.02, Alt D=10 was very good.
+  For my setup, Alt P=10, Alt I=0.02, Alt D=20 was very good.
   
 - Different altitude control in AltHold mode: you configure ALT_HOLD_DEADBAND in config.h, 
 	set the throttle stick near hover and switch to AltHold (BARO) mode. 
