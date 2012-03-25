@@ -3,7 +3,7 @@
 /* displacment (in mm*10 on height 1m) */
 static int16_t optflow_pos[2] = { 0, 0 };
 
-/* surface quality, (0..255) */
+/* surface quality, (0..127) */
 static uint8_t optflow_squal = 0;
 
 /* Optical Flow mode flag */

@@ -674,7 +674,7 @@ void loop () {
   // alexmos: position hold with Optical Flow sensor
 	static int16_t optflow_angle[2] = { 0, 0 };
   #ifdef OPTFLOW
-		//static int32_t optflowErrorI[2] = { 0, 0 };
+		static int16_t optflowErrorI[2] = { 0, 0 };
 
 	  // enable OPTFLOW only in level mode and if GPS is not used
 	  if(optflowMode && abs(rcCommand[ROLL]) < OF_DEADBAND && abs(rcCommand[PITCH]) < OF_DEADBAND
@@ -687,14 +687,13 @@ void loop () {
 				getEstHVel();
 		  	
 		  	for(axis=0; axis<2; axis++) {
-		  		//optflowErrorI[axis]+= EstHVel[axis];
-		  		//optflowErrorI[axis] = constrain(optflowErrorI[axis], -100000, 100000);
+		  		optflowErrorI[axis]+= EstHVel[axis]; // EstHVel < 100, so it is safe to do 30000 + 100
+		  		optflowErrorI[axis] = constrain(optflowErrorI[axis], -30000, 30000);
 		  		
 		  		optflow_angle[axis] = constrain(EstHVel[axis] * P8[PIDVEL] / 50  // 16 bit ok: 200 * 100 = 20000
-		  			//+ (int16_t)(I8[PIDVEL] * optflowErrorI[axis] / 1000)
+		  			+ (int16_t)(I8[PIDVEL] * optflowErrorI[axis] / 3000)
 		  			- constrain(EstHAcc[axis], -100, 100) * D8[PIDVEL] / 50  // 16 bit ok: 100*200 = 20000
-		  		, -300, 300) * (OF_DEADBAND - abs(rcCommand[axis])) / OF_DEADBAND; 
-		  		// correction softly disabled near deadband limits
+		  		, -300, 300) * (OF_DEADBAND - abs(rcCommand[axis])) / OF_DEADBAND;  // correction is less near deadband limits to keep manual control
 		  	}
 		  	#ifdef OF_DEBUG
 		  		debug4 = optflow_angle[0];

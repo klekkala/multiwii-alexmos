@@ -440,12 +440,14 @@ float InvSqrt (float x){
 /* Set ACC weight compared to OF-sensor weight in horizontal velocity estimation */
 #define OF_ACC_FACTOR 10.0f 
 
+
 void getEstHVel() {
 	int16_t vel_of[2]; // velocity from OF-sensor, cm/sec
 	static float vel[2] = { 0, 0 }; // estimated velocity, cm/sec
 	int8_t axis;
 	static uint16_t prevTime;
 	static int16_t prevAngle[2] = { 0, 0 };
+	static t_avg_var avgVel[2] = { {0,0}, {0,0} }; 
 
 	uint16_t tmpTime = micros();
 	uint16_t dTime = tmpTime - prevTime;
@@ -456,14 +458,15 @@ void getEstHVel() {
 	
 
 	uint16_t alt; // alt in mm*10
-	if(EstAlt > 0 && EstAlt < 600 && cosZ > 70 && optflow_squal > 20) {
-		alt = EstAlt * 100; // 16 bit ok: 600 * 100 = 60000;
+	if(EstAlt < 30000 && cosZ > 70 && optflow_squal > 10) {
+		// above 2m, don't take altitude into account (it means less stabilization)
+		alt = constrain((uint16_t)EstAlt, 30, 200) * 100; // 16 bit ok: 200 * 100 = 20000;
 	} else {
 		alt = 0;
 	}
 	
 	for(axis=0;axis<2;axis++) {
-		// Get velocity from OF-sensor only in good conditions (<5m)
+		// Get velocity from OF-sensor only in good conditions
 		// TODO: check surface quality, YAW speed
 		if(alt != 0) { 
 			// remove shift in position due to inclination: delta_angle * PI / 180 * 100
@@ -479,13 +482,18 @@ void getEstHVel() {
  		vel[axis] = ((vel[axis] + EstHAcc[axis]*accVelScale*dTime)*OF_ACC_FACTOR + vel_of[axis])/(1+OF_ACC_FACTOR);
  		
 
-		EstHVel[axis] = constrain((int16_t)vel[axis], -100, 100);
+		//EstHVel[axis] = constrain((int16_t)vel[axis], -100, 100);
+
+ 		// Apply low-pass filter to prevent shaking on nosy or missed signal
+ 		average(&avgVel[axis], vel[axis], 6);
+		EstHVel[axis] = constrain(avgVel[axis].res, -100, 100);
 		
+
 		prevAngle[axis] = angle[axis];
 	}
 	
 	#ifdef OF_DEBUG
-		debug1 =  EstHVel[0]/10;
+		debug1 =  EstHVel[0];
 		debug2 = optflow_pos[0];
 		debug3 = optflow_squal;
 		//debug4 = vel_of[0]*10;
