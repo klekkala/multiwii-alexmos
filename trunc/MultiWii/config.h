@@ -425,8 +425,8 @@
 
 
 /* alexmos: Optical Flow sensor for position hold. */
-/* VEL pids (P and D) are used to control position. Works only in LEVEL mode. */
-//#define OPTFLOW ADNS_5050
+/* VEL PID are used to control position. Works only in LEVEL mode. */
+#define OPTFLOW ADNS_5050
 /* SPI pins for sensor connection */
 /* (These pins are free if SumPPM used) */
 #define OF_SCLK PITCHPIN
@@ -438,6 +438,8 @@
 #define OF_DEADBAND 50
 /* Enable/disable mode in config, because currently there is no switch in GUI */
 #define OF_MODE 1
+/* Rotate I-term with heading rotation. It will compensate wind, but not level drift */
+#define OF_ROTATE_I
 /* Debug to GUI */
 #define OF_DEBUG
 

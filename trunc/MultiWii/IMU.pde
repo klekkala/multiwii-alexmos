@@ -168,6 +168,7 @@ void rotateV(struct fp_vector *v,float* delta) {
 // alexmos: need it later
 static t_fp_vector EstG = {0,0,0};
 static float InvG = 0;
+static float HRM[2] = {1,0};
 
 void getEstimatedAttitude(){
   uint8_t axis;
@@ -244,8 +245,22 @@ void getEstimatedAttitude(){
   angle[ROLL]  =  _atan2(EstG.V.X , EstG.V.Z) ;
   angle[PITCH] =  _atan2(EstG.V.Y , EstG.V.Z) ;
   #if MAG
+    /* 
+    //alexmos: calculate rotation matrix to rotate heading
+    HRM[0] = EstG.V.X * EstM.V.Z - EstG.V.Z * EstM.V.X;
+    HRM[1] = EstG.V.Z * EstM.V.Y - EstG.V.Y * EstM.V.Z; 
+    heading = _atan2( HRM[0] , HRM[1]  ) / 10;
+    */
+    
     // Attitude of the cross product vector GxM
     heading = _atan2( EstG.V.X * EstM.V.Z - EstG.V.Z * EstM.V.X , EstG.V.Z * EstM.V.Y - EstG.V.Y * EstM.V.Z  ) / 10;
+    
+    /*
+    // Normalize rotation matrix
+    float mod = InvSqrt(fsq(HRM[0]) + fsq(HRM[0]));
+   	HRM[0]/= mod;
+   	HRM[1]/= mod;
+   	*/
   #endif
   
   // alexmos: calc some useful values
@@ -432,8 +447,35 @@ float InvSqrt (float x){
   return 0.5f * conv.f * (3.0f - x * conv.f * conv.f);
 } 
 
-  
-  
+/* Rotate vector V(x,y) to angle delta (in 0.1 degree) using small angle approximation and integers. */
+/* (Not precise but fast) */
+inline void rotate16(int16_t *V, int16_t delta) {
+  int16_t tmp = V[0];
+  V[0]-= (int16_t)( ((int32_t)delta) * V[1] / 573);
+  V[1]+= (int16_t)( ((int32_t)delta) * tmp / 573); 
+}
+
+
+/* Rotate vector V clockwise by heading rotation matrix */
+/*
+void rotate_heading_cw16(int16_t *V) {
+	int16_t tmp = V[0];
+	V[0] = V[0]*HRM[0] + V[1]*HRM[1];
+	V[1] = tmp*HRM[1] - V[1]*HRM[0];
+}	
+*/
+
+/* Rotate vector V counter-clockwise by heading rotation matrix  */
+/*
+void rotate_heading_ccw16(int16_t *V) {
+	int16_t tmp = V[0];
+	V[0] = V[0]*HRM[0] - V[1]*HRM[1];
+	V[1] = tmp*HRM[1] + V[1]*HRM[0];
+}	
+*/
+
+
+
 //alexmos: OpticalFlow for horisontal velocity estimation
 #ifdef OPTFLOW
 
@@ -445,17 +487,27 @@ void getEstHVel() {
 	int16_t vel_of[2]; // velocity from OF-sensor, cm/sec
 	static float vel[2] = { 0, 0 }; // estimated velocity, cm/sec
 	int8_t axis;
-	static uint16_t prevTime;
+	static uint8_t initDone = 0;
 	static int16_t prevAngle[2] = { 0, 0 };
 	static t_avg_var avgVel[2] = { {0,0}, {0,0} }; 
-
+	static uint16_t prevTime = 0;
 	uint16_t tmpTime = micros();
+
+	/*
+	if(!initDone) {
+		prevTime = tmpTime;
+		prevAngle[0] = angle[0];
+		prevAngle[1] = angle[1];
+		initDone = 1;
+	}
+	*/
+		
+	
 	uint16_t dTime = tmpTime - prevTime;
 	prevTime = tmpTime;
 	
 	// get normalized sensor values
 	optflow_get();
-	
 
 	uint16_t alt; // alt in mm*10
 	if(EstAlt < 30000 && cosZ > 70 && optflow_squal > 10) {
@@ -467,7 +519,6 @@ void getEstHVel() {
 	
 	for(axis=0;axis<2;axis++) {
 		// Get velocity from OF-sensor only in good conditions
-		// TODO: check surface quality, YAW speed
 		if(alt != 0) { 
 			// remove shift in position due to inclination: delta_angle * PI / 180 * 100
 			// mm/sec(10m) * cm / us   ->    cm / sec
@@ -481,9 +532,6 @@ void getEstHVel() {
  		// Apply ACC-OF complementary filter
  		vel[axis] = ((vel[axis] + EstHAcc[axis]*accVelScale*dTime)*OF_ACC_FACTOR + vel_of[axis])/(1+OF_ACC_FACTOR);
  		
-
-		//EstHVel[axis] = constrain((int16_t)vel[axis], -100, 100);
-
  		// Apply low-pass filter to prevent shaking on nosy or missed signal
  		average(&avgVel[axis], vel[axis], 6);
 		EstHVel[axis] = constrain(avgVel[axis].res, -100, 100);
@@ -493,7 +541,7 @@ void getEstHVel() {
 	}
 	
 	#ifdef OF_DEBUG
-		debug1 =  EstHVel[0];
+		debug1 =  EstHVel[0]*10;
 		debug2 = optflow_pos[0];
 		debug3 = optflow_squal;
 		//debug4 = vel_of[0]*10;
