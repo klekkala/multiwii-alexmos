@@ -589,6 +589,10 @@ void loop () {
       else GPSModeHome = 0;
       if ((rcOptions1 & activate1[BOXGPSHOLD]) || (rcOptions2 & activate2[BOXGPSHOLD])) {GPSModeHold = 1;}
       else GPSModeHold = 0;
+    // alexmos: use GPSHold checkbox for opticalFlow mode, bacause no special box in GUI
+    #else if defined(OPTFLOW)
+      if ((rcOptions1 & activate1[BOXGPSHOME]) || (rcOptions2 & activate2[BOXGPSHOME])) {optflowMode = 1;}
+      else optflowMode = 0;
     #endif
     if ((rcOptions1 & activate1[BOXPASSTHRU]) || (rcOptions2 & activate2[BOXPASSTHRU])) {passThruMode = 1;}
     else passThruMode = 0;
@@ -675,26 +679,51 @@ void loop () {
 	static int16_t optflow_angle[2] = { 0, 0 };
   #ifdef OPTFLOW
 		static int16_t optflowErrorI[2] = { 0, 0 };
+		static int16_t prevHeading = 0;
 
-	  // enable OPTFLOW only in level mode and if GPS is not used
-	  if(optflowMode && abs(rcCommand[ROLL]) < OF_DEADBAND && abs(rcCommand[PITCH]) < OF_DEADBAND
-	  			&& GPSModeHome == 0) {
+	  // enable OPTFLOW only in LEVEL mode and if GPS is not used
+	  if(armed == 1 && accMode == 1 && optflowMode == 1 && GPSModeHome == 0) {
 			// Read sensor every cycle (internal buffer holds only 127 counts)
 			optflow_update(); // 
-	  	
+
 			// Do calculations every 8th cycle (~30Hz)
 			if(cycleCnt&4) {
-				getEstHVel();
-		  	
-		  	for(axis=0; axis<2; axis++) {
-		  		optflowErrorI[axis]+= EstHVel[axis]; // EstHVel < 100, so it is safe to do 30000 + 100
-		  		optflowErrorI[axis] = constrain(optflowErrorI[axis], -30000, 30000);
-		  		
-		  		optflow_angle[axis] = constrain(EstHVel[axis] * P8[PIDVEL] / 50  // 16 bit ok: 200 * 100 = 20000
-		  			+ (int16_t)(I8[PIDVEL] * optflowErrorI[axis] / 3000)
-		  			- constrain(EstHAcc[axis], -100, 100) * D8[PIDVEL] / 50  // 16 bit ok: 100*200 = 20000
-		  		, -300, 300) * (OF_DEADBAND - abs(rcCommand[axis])) / OF_DEADBAND;  // correction is less near deadband limits to keep manual control
+	  		// Rotate I to follow global axis
+	  		#ifdef OF_ROTATE_I
+		      int16_t dif = heading - prevHeading;
+		      if (dif <= - 180) dif += 360;
+		      else if (dif >= + 180) dif -= 360;
+	  			if(abs(dif) > 5) { // rotate by 5-degree steps
+	  				rotate16(optflowErrorI, dif*10);
+	  				prevHeading = heading;
+	  			}
+	  		#endif
+
+	  		// Apply P,D-terms and change I-term only inside DEADBAND
+	  		if(abs(rcCommand[ROLL]) < OF_DEADBAND && abs(rcCommand[PITCH]) < OF_DEADBAND) {
+					getEstHVel();
+
+			  	for(axis=0; axis<2; axis++) {
+			  		// correction should be less near deadband limits
+		  			EstHVel[axis] = EstHVel[axis] * (OF_DEADBAND - abs(rcCommand[axis])) / OF_DEADBAND; // 16 bit ok: 100*100 = 10000
+				  	
+			  		optflowErrorI[axis]+= EstHVel[axis]; 
+			  		optflowErrorI[axis] = constrain(optflowErrorI[axis], -20000, 20000);
+
+			  		optflow_angle[axis] = EstHVel[axis] * P8[PIDVEL] / 50  // 16 bit ok: 200 * 100 = 20000
+			  			- constrain(EstHAcc[axis], -100, 100) * D8[PIDVEL] / 50;  // 16 bit ok: 100*200 = 20000
+					}		  		
+		  	} else {
+		  		optflow_angle[0] = 0;
+		  		optflow_angle[1] = 0;
 		  	}
+
+  			// Apply I-term unconditionally
+		  	for(axis=0; axis<2; axis++) {
+	  			optflow_angle[axis] = constrain(optflow_angle[axis] + (int16_t)(((int32_t)optflowErrorI[axis]) * I8[PIDVEL] / 3000),
+	  				-300, 300);
+	  		}
+
 		  	#ifdef OF_DEBUG
 		  		debug4 = optflow_angle[0];
 		  	#endif

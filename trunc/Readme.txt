@@ -3,6 +3,15 @@ There is 1-second pause before sensor calibration on startup. You have time to t
 after switching power to keep  ABSOLUTELY IMMOVABLE while calibrating gyroscope.
 Precise gyro = stable flight!
 
+
+New in r18:
+
+Position Hold:
+- Small bug corrcted if Alt-I > 0
+- Added rotation of I-term to follow heading. It will keep wind compensation in case of copter rotation in flight
+- I-term is always enabled
+
+
 New in r17:
 
 - Added position hold mode with optical flow sensor ADNS-5050. 
