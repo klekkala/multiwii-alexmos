@@ -589,8 +589,9 @@ void loop () {
       else GPSModeHome = 0;
       if ((rcOptions1 & activate1[BOXGPSHOLD]) || (rcOptions2 & activate2[BOXGPSHOLD])) {GPSModeHold = 1;}
       else GPSModeHold = 0;
-    // alexmos: use GPSHold checkbox for opticalFlow mode, bacause no special box in GUI
-    #else if defined(OPTFLOW)
+    // alexmos: use GPSHome checkbox for opticalFlow mode, bacause no special box in GUI
+    // TODO: change to GPSHold
+    #elif defined(OPTFLOW)
       if ((rcOptions1 & activate1[BOXGPSHOME]) || (rcOptions2 & activate2[BOXGPSHOME])) {optflowMode = 1;}
       else optflowMode = 0;
     #endif
@@ -675,16 +676,33 @@ void loop () {
     }
   #endif
 
+  
+  
   // alexmos: position hold with Optical Flow sensor
-	static int16_t optflow_angle[2] = { 0, 0 };
   #ifdef OPTFLOW
+		static int16_t optflow_angle[2] = { 0, 0 };
 		static int16_t optflowErrorI[2] = { 0, 0 };
 		static int16_t prevHeading = 0;
-
+		static int8_t optflowUse = -1;
+		
 	  // enable OPTFLOW only in LEVEL mode and if GPS is not used
-	  if(armed == 1 && accMode == 1 && optflowMode == 1 && GPSModeHome == 0) {
-			// Read sensor every cycle (internal buffer holds only 127 counts)
-			optflow_update(); // 
+	  if(accMode == 1 && optflowMode == 1 && GPSModeHome == 0) {
+  		// init first time mode enabled
+  		if(optflowUse == -1) {
+		  	optflowErrorI[0] = 0;	optflowErrorI[1] = 0;
+ 				prevHeading = heading;
+ 			}
+  			
+  		
+  		// Use sensor only inside DEADBAND
+  		if(abs(rcCommand[ROLL]) < OF_DEADBAND && abs(rcCommand[PITCH]) < OF_DEADBAND) {
+				// Read sensor every cycle to prevent internal buffer overflow
+				optflow_update(); 
+				optflowUse = 1;
+			} else {
+				optflowUse = 0;
+			}
+				
 
 			// Do calculations every 8th cycle (~30Hz)
 			if(cycleCnt&4) {
@@ -699,8 +717,8 @@ void loop () {
 	  			}
 	  		#endif
 
-	  		// Apply P,D-terms and change I-term only inside DEADBAND
-	  		if(abs(rcCommand[ROLL]) < OF_DEADBAND && abs(rcCommand[PITCH]) < OF_DEADBAND) {
+	  		// skip angle update if sensor is not used
+	  		if(optflowUse) {
 					getEstHVel();
 
 			  	for(axis=0; axis<2; axis++) {
@@ -714,8 +732,7 @@ void loop () {
 			  			- constrain(EstHAcc[axis], -100, 100) * D8[PIDVEL] / 50;  // 16 bit ok: 100*200 = 20000
 					}		  		
 		  	} else {
-		  		optflow_angle[0] = 0;
-		  		optflow_angle[1] = 0;
+		  		optflow_angle[0] = 0;	optflow_angle[1] = 0;
 		  	}
 
   			// Apply I-term unconditionally
@@ -728,9 +745,9 @@ void loop () {
 		  		debug4 = optflow_angle[0];
 		  	#endif
 			}
-	  } else {
-	  	optflow_angle[0] = 0; 
-	  	optflow_angle[1] = 0;
+	  } else if(optflowUse != -1) { // switch mode off
+	  	optflow_angle[0] = 0; optflow_angle[1] = 0;
+	  	optflowUse = -1;
 	  }
 	#endif
   
@@ -738,7 +755,11 @@ void loop () {
   for(axis=0;axis<3;axis++) {
     if (accMode == 1 && axis<2 ) { //LEVEL MODE
       // 50 degrees max inclination
-      errorAngle = constrain(2*rcCommand[axis] - GPS_angle[axis] - optflow_angle[axis],-500,+500) - angle[axis] + accTrim[axis]; //16 bits is ok here
+      errorAngle = constrain(2*rcCommand[axis] - GPS_angle[axis],-500,+500) - angle[axis] + accTrim[axis]; //16 bits is ok here
+      #ifdef OPTFLOW
+      	errorAngle-= optflow_angle[axis];
+      #endif
+      
       #ifdef LEVEL_PDF
         PTerm      = -(int32_t)angle[axis]*P8[PIDLEVEL]/100 ;
       #else  
