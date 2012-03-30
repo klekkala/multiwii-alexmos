@@ -7,7 +7,7 @@ static int16_t optflow_pos[2] = { 0, 0 };
 static uint8_t optflow_squal = 0;
 
 /* Optical Flow mode flag */
-static int8_t optflowMode = OF_MODE;
+static int8_t optflowMode = 0;
 
 
 /* Estimated horisontal velocity from ACC + OptFlow sensor, cm/sec */

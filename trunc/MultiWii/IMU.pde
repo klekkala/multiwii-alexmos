@@ -487,32 +487,22 @@ void getEstHVel() {
 	int16_t vel_of[2]; // velocity from OF-sensor, cm/sec
 	static float vel[2] = { 0, 0 }; // estimated velocity, cm/sec
 	int8_t axis;
-	static uint8_t initDone = 0;
 	static int16_t prevAngle[2] = { 0, 0 };
 	static t_avg_var avgVel[2] = { {0,0}, {0,0} }; 
 	static uint16_t prevTime = 0;
-	uint16_t tmpTime = micros();
+	uint16_t alt; // alt in mm*10
 
-	/*
-	if(!initDone) {
-		prevTime = tmpTime;
-		prevAngle[0] = angle[0];
-		prevAngle[1] = angle[1];
-		initDone = 1;
-	}
-	*/
-		
-	
+	uint16_t tmpTime = micros();
 	uint16_t dTime = tmpTime - prevTime;
 	prevTime = tmpTime;
 	
 	// get normalized sensor values
 	optflow_get();
 
-	uint16_t alt; // alt in mm*10
-	if(EstAlt < 30000 && cosZ > 70 && optflow_squal > 10) {
-		// above 2m, don't take altitude into account (it means less stabilization)
-		alt = constrain((uint16_t)EstAlt, 30, 200) * 100; // 16 bit ok: 200 * 100 = 20000;
+	if(cosZ > 70 && optflow_squal > 10) {
+		// above 3m, freeze altitude (it means less stabilization on high altitude)
+ 		// .. and reduce signal if surface quality <50
+		alt = constrain((uint16_t)EstAlt, 30, 300) * min(optflow_squal,50) * 2; // 16 bit ok: 300 * 50 * 2 = 30000;
 	} else {
 		alt = 0;
 	}
@@ -527,9 +517,10 @@ void getEstHVel() {
 			vel_of[axis] = 0;
 		}
 		// Projection of ACC vector on X,Y global axis (simplified version)
- 		EstHAcc[axis] = (int16_t)EstG.A[axis] - accADC[axis];
+ 		EstHAcc[axis] = (int16_t)EstG.A[axis] - ACC_VALUE;
  		
  		// Apply ACC-OF complementary filter
+ 		// TODO: test without acc (to reduce cycle time)
  		vel[axis] = ((vel[axis] + EstHAcc[axis]*accVelScale*dTime)*OF_ACC_FACTOR + vel_of[axis])/(1+OF_ACC_FACTOR);
  		
  		// Apply low-pass filter to prevent shaking on nosy or missed signal
