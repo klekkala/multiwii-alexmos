@@ -691,21 +691,14 @@ void loop () {
   		if(optflowUse == -1) {
 		  	optflowErrorI[0] = 0;	optflowErrorI[1] = 0;
  				prevHeading = heading;
+ 				optflowUse = 1;
  			}
-  			
   		
-  		// Use sensor only inside DEADBAND
-  		if(abs(rcCommand[ROLL]) < OF_DEADBAND && abs(rcCommand[PITCH]) < OF_DEADBAND) {
-				// Read sensor every cycle to prevent internal buffer overflow
-				optflow_update(); 
-				optflowUse = 1;
-			} else {
-				optflowUse = 0;
-			}
-				
+			// Read sensor every cycle to prevent internal buffer overflow
+			optflow_update();
 
 			// Do calculations every 8th cycle (~30Hz)
-			if(cycleCnt&4) {
+			if(cycleCnt%8 == 0) {
 	  		// Rotate I to follow global axis
 	  		#ifdef OF_ROTATE_I
 		      int16_t dif = heading - prevHeading;
@@ -717,8 +710,8 @@ void loop () {
 	  			}
 	  		#endif
 
-	  		// skip angle update if sensor is not used
-	  		if(optflowUse) {
+ 	 			// Use sensor only inside DEADBAND
+	  		if(abs(rcCommand[ROLL]) < OF_DEADBAND && abs(rcCommand[PITCH]) < OF_DEADBAND) {
 					getEstHVel();
 
 			  	for(axis=0; axis<2; axis++) {
@@ -728,8 +721,10 @@ void loop () {
 			  		optflowErrorI[axis]+= EstHVel[axis]; 
 			  		optflowErrorI[axis] = constrain(optflowErrorI[axis], -20000, 20000);
 
-			  		optflow_angle[axis] = EstHVel[axis] * P8[PIDVEL] / 50  // 16 bit ok: 200 * 100 = 20000
-			  			- constrain(EstHAcc[axis], -100, 100) * D8[PIDVEL] / 50;  // 16 bit ok: 100*200 = 20000
+			  		optflow_angle[axis] = EstHVel[axis] * P8[PIDVEL] / 50;  // 16 bit ok: 100 * 200 = 20000
+			  		#ifdef OF_USE_ACC
+			  			optflow_angle[axis]-= constrain(EstHAcc[axis], -100, 100) * D8[PIDVEL] / 50;  // 16 bit ok: 100*200 = 20000
+			  		#endif
 					}		  		
 		  	} else {
 		  		optflow_angle[0] = 0;	optflow_angle[1] = 0;
@@ -737,12 +732,12 @@ void loop () {
 
   			// Apply I-term unconditionally
 		  	for(axis=0; axis<2; axis++) {
-	  			optflow_angle[axis] = constrain(optflow_angle[axis] + (int16_t)(((int32_t)optflowErrorI[axis]) * I8[PIDVEL] / 3000),
+	  			optflow_angle[axis] = constrain(optflow_angle[axis] + (int16_t)((int32_t)optflowErrorI[axis] * I8[PIDVEL] / 5000),
 	  				-300, 300);
 	  		}
 
 		  	#ifdef OF_DEBUG
-		  		debug4 = optflow_angle[0];
+		  		debug4 = optflow_angle[0]*10;
 		  	#endif
 			}
 	  } else if(optflowUse != -1) { // switch mode off
