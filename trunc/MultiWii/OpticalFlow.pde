@@ -6,18 +6,15 @@ static uint16_t scale;
 
 /* Sensor's row data accumulators */
 static int16_t sum_dx = 0, sum_dy = 0;
-static uint16_t sum_squal = 0;
-static uint8_t cnt;
 
 
 /* Convert row data to displacment (in mm*10 on height 1m)  since last call */
 inline void optflow_get() {
-	optflow_pos[1] = sum_dx * scale;
-	optflow_pos[0] = sum_dy * scale;
-	optflow_squal = sum_squal/cnt; // average
+	optflow_pos[1] = constrain((int32_t)sum_dx * scale, -0x7FFF, 0x7FFF);
+	optflow_pos[0] = constrain((int32_t)sum_dy * scale, -0x7FFF, 0x7FFF);
 
 	// clear accumulated displacement
-	sum_dx = 0; sum_dy = 0; sum_squal = 0; cnt = 0;
+	sum_dx = 0; sum_dy = 0; 
 }	
 
 
@@ -28,7 +25,7 @@ inline void optflow_get() {
 
 
 /* *************************************************** */
-/* Config and routines for each sensor                 */
+/* Configuration and routines for each sensor          */
 #if(OPTFLOW==ADNS_5050)
 	#define PRODUCT_ID          0x00 // should be 0x12
 	#define PRODUCTID2          0x3e
@@ -52,12 +49,12 @@ inline void optflow_get() {
 	//	#define RES_CFG 	0b10010
 	//#define RES_CPI 	500
 	//	#define RES_CFG 	0b10100
-	#define RES_CPI 	750
-		#define RES_CFG 	0b10110
+	//#define RES_CPI 	750
+	//	#define RES_CFG 	0b10110
 	//#define RES_CPI		1000 	
 	//	#define RES_CFG		0b11000
-	//#define RES_CPI		1250
-	//	#define RES_CFG	0b11010
+	#define RES_CPI		1250
+		#define RES_CFG	0b11010
 
 
 inline void initOptflow() {
@@ -69,7 +66,8 @@ inline void initOptflow() {
   ADNS_write(RESET, 0x5a);
   delayMicroseconds(50);
   
-  scale = 254000 / OF_FOCAL_DIST / RES_CPI;
+  //scale = (uint32_t)254000  / OF_FOCAL_DIST / RES_CPI;
+  scale = (uint32_t)500000 / OF_FOCAL_DIST / RES_CPI;
   
   if(ADNS_read(PRODUCT_ID) == 0x12) {
  		ADNS_write(MOUSE_CONTROL2, RES_CPI); // Set resolution
@@ -82,9 +80,11 @@ inline void optflow_update() {
   	sum_dx+= (int8_t)ADNS_read(DELTA_X_REG);
   	sum_dy+= (int8_t)ADNS_read(DELTA_Y_REG);
   }
+}
 
-  sum_squal+= ADNS_read(SQUAL_REG);
-  cnt++;
+/* get surface quality, (0..127) */
+inline uint8_t optflow_squal() {
+	return ADNS_read(SQUAL_REG);
 }
 
 /* Write byte of data to SPI */

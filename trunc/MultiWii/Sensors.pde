@@ -192,7 +192,7 @@ void GYRO_Common() {
 void ACC_Common() {
   static int32_t a[3];
   static uint8_t curAxis = YAW; 
-  int8_t curLimit, axis; 
+  int8_t axis; 
   static int16_t limits[3][2] = { {0,0}, {0,0}, {0,0} };
   
   if (calibratingA>0) {
@@ -200,7 +200,9 @@ void ACC_Common() {
       // Reset a[axis] at start of calibration
       if (calibratingA == 400) {
       	// Find wich axis to calibrate?
-      	if(abs(accADC[axis]) > abs(accADC[(axis+1)%3]) + abs(accADC[(axis+2)%3])) {
+      	int8_t axis2 = (axis+1)%3;
+      	int8_t axis3 = (axis+2)%3;
+      	if(abs(accADC[axis] - accZero[axis]) > abs(accADC[axis2] - accZero[axis2]) && abs(accADC[axis] - accZero[axis]) > abs(accADC[axis3] - accZero[axis3])) {
       		curAxis = axis;
       		accScale[curAxis] = 0; // re-calibrate scale, too
       	}
@@ -214,7 +216,7 @@ void ACC_Common() {
 
     // Calculate average, shift Z down by acc_1G and store values in EEPROM at end of calibration
     if (calibratingA == 1) {
-      curLimit = a[curAxis] > 0 ? 0 : 1; // positive - 0, negative = 1
+      int8_t curLimit = a[curAxis] > 0 ? 0 : 1; // positive - 0, negative = 1
       limits[curAxis][curLimit] = a[curAxis]/400;
       
       // If we get 2 limits for one axis, we can found precize zero and scale
@@ -224,9 +226,11 @@ void ACC_Common() {
       } 
       // Old (not precize) calibration for YAW only
       else if(curAxis == YAW && curLimit == 0) {
-	      accZero[YAW]   = a[YAW]/400 - acc_1G;
-	      accZero[ROLL]  = a[ROLL]/400;
-	      accZero[PITCH] = a[PITCH]/400;
+	      for(axis=0;axis<3;axis++) {
+	      	accZero[axis] = a[axis]/400;
+	      	if(axis == YAW)		accZero[axis]-= acc_1G;
+	      	accScale[axis] = 0;
+	      }
 	    }
 
       accTrim[ROLL]   = 0;
