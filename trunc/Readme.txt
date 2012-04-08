@@ -4,6 +4,13 @@ after switching power to keep  ABSOLUTELY IMMOVABLE while calibrating gyroscope.
 Precise gyro = stable flight!
 
 
+New in r20:
+
+-Position hold updates:
+	- Faster SPI communication width DigitalWriteFast library (less cycle time)
+	- ACC fusion disabled by default
+
+
 New in r18:
 
 Position Hold:

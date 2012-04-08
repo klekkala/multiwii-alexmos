@@ -2,6 +2,10 @@
 /* (c) alexmos 2012 */
 #ifdef OPTFLOW
 
+/* attempt to fasten SPI read-write */
+#include "digitalWriteFast.h"
+
+
 static uint16_t scale;
 
 /* Sensor's row data accumulators */
@@ -16,6 +20,8 @@ inline void optflow_get() {
 	// clear accumulated displacement
 	sum_dx = 0; sum_dy = 0; 
 }	
+
+
 
 
 
@@ -58,9 +64,9 @@ inline void optflow_get() {
 
 
 inline void initOptflow() {
-  pinMode(OF_SDIO, OUTPUT);
-  pinMode(OF_SCLK, OUTPUT);
-  pinMode(OF_NCS, OUTPUT);
+  pinModeFast(OF_SDIO, OUTPUT);
+  pinModeFast(OF_SCLK, OUTPUT);
+  pinModeFast(OF_NCS, OUTPUT);
 
   // reset device
   ADNS_write(RESET, 0x5a);
@@ -90,45 +96,47 @@ inline uint8_t optflow_squal() {
 /* Write byte of data to SPI */
 void _spi_write(byte val) {
   for (byte i=128; i >0 ; i >>= 1) {
-    digitalWrite (OF_SCLK, LOW);
-    digitalWrite (OF_SDIO, (val & i) != 0 ? HIGH : LOW);
-    digitalWrite (OF_SCLK, HIGH);
+    digitalWriteFast (OF_SCLK, LOW);
+    digitalWriteFast (OF_SDIO, (val & i) != 0 ? HIGH : LOW);
+    delayMicroseconds(1);
+    digitalWriteFast (OF_SCLK, HIGH);
   }
 }	
 
 /* Read register */
 byte ADNS_read(byte address) {
-  digitalWrite(OF_NCS, LOW);// select the chip
+  digitalWriteFast(OF_NCS, LOW);// select the chip
+  delayMicroseconds(1);
 
-  pinMode (OF_SDIO, OUTPUT);
+  pinModeFast (OF_SDIO, OUTPUT);
   _spi_write(address);
 
-  //delayMicroseconds(20); // tSWR = 20us min.
-  // skip it and still working :)
+  delayMicroseconds(4); // tSRAD = 4us min.
 
-  pinMode (OF_SDIO, INPUT);
+  pinModeFast (OF_SDIO, INPUT);
   byte res = 0;
   for (byte i=128; i >0 ; i >>= 1) {
-    digitalWrite (OF_SCLK, LOW);
-    digitalWrite (OF_SCLK, HIGH);
-    if( digitalRead (OF_SDIO) == HIGH )
+    digitalWriteFast (OF_SCLK, LOW);
+    delayMicroseconds(1);
+    digitalWriteFast (OF_SCLK, HIGH);
+    if( digitalReadFast (OF_SDIO) == HIGH )
       res |= i;
   }
 
-  digitalWrite(OF_NCS, HIGH);// de-select the chip
+  digitalWriteFast(OF_NCS, HIGH);// de-select the chip
   return res;
 }
 
 /* Write register */
 void ADNS_write(byte address, byte data) {
-  digitalWrite(OF_NCS, LOW);// select the chip
+  digitalWriteFast(OF_NCS, LOW);// select the chip
+  delayMicroseconds(1);
 
-  pinMode (OF_SDIO, OUTPUT);
+  pinModeFast (OF_SDIO, OUTPUT);
   _spi_write(address);
-  delayMicroseconds(30); // tSWW = 30us min.
   _spi_write(data);
 
-  digitalWrite(OF_NCS, HIGH);// de-select the chip
+  digitalWriteFast(OF_NCS, HIGH);// de-select the chip
 }
 
 
