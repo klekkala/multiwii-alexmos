@@ -418,25 +418,30 @@
 /* Correct throttle according to Z-axis inclination */
 /* Default is 100. Don't set above 200 */
 /* Set to 0 to disable this correction */
-#define THROTTLE_ANGLE_CORRECTION 120
+#define THROTTLE_ANGLE_CORRECTION 150
 /* Correct throttle to compensate aerodynamic lifting force and lateral wind (positive or negative, depending on speed and inclination) */
 /* Default is 200. */ 
-#define THROTTLE_WIND_CORRECTION 200
+#define THROTTLE_WIND_CORRECTION 250
 
 
-/* alexmos: Optical Flow sensor for position hold. */
-/* VEL PID are used to control position. Works only in LEVEL mode. */
+/* alexmos: Optical Flow sensor for position hold. 
+VEL PID (P, I only) are used to control position. Works only in LEVEL mode. 
+
+Sensors currently supported: 
+	ADNS-5050 
+	(if you implement other sensor, let me know) 
+*/
 #define OPTFLOW ADNS_5050
-/* SPI pins for sensor connection */
-/* (These pins are free if SumPPM used) */
+/* SPI pins for sensor connection (you can use any of free pins) */
 #define OF_SCLK PITCHPIN
 #define OF_SDIO YAWPIN
 #define OF_NCS  ROLLPIN
-/* Lense focal distance, mm (set it for your own lense) */
+/* Lense focal distance, mm (set it for your own lense) 
+ (How to check: debug4 in GUI should not react on ROLL tilt, but react on ROLL slide) */
 #define OF_FOCAL_DIST 9
-/* Deadband for ROLL,PITCH sticks where OPTFLOW is enabled. Max value 100 */
+/* Deadband for ROLL,PITCH sticks where position hold is enabled. Max value 100 */
 #define OF_DEADBAND 15
-/* Rotate I-term with heading rotation. It will compensate wind, but not level drift */
+/* Rotate I-term with heading rotation. It will well compensate wind */
 #define OF_ROTATE_I
 /* Debug to GUI */
 #define OF_DEBUG
