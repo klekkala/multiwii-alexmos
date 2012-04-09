@@ -4,11 +4,12 @@ after switching power to keep  ABSOLUTELY IMMOVABLE while calibrating gyroscope.
 Precise gyro = stable flight!
 
 
-New in r20:
+New in r21:
 
 -Position hold updates:
 	- Faster SPI communication width DigitalWriteFast library (less cycle time)
 	- ACC fusion disabled by default
+-compiles in Arduino 1.0 IDE without errors
 
 
 New in r18:
