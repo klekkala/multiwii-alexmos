@@ -3,7 +3,9 @@
 #ifdef OPTFLOW
 
 /* attempt to fasten SPI read-write */
-#include "digitalWriteFast.h"
+#if !defined(digitalWriteFast)
+	#include "digitalWriteFast.h"
+#endif
 
 
 static uint16_t scale;

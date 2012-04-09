@@ -1,5 +1,10 @@
+#if ARDUINO >= 100
+#include <Arduino.h>
+#else
 #include "WProgram.h" 
 #include <wiring.h>
+#endif
+
 
 #define BIT_READ(value, bit) (((value) >> (bit)) & 0x01)
 #define BIT_SET(value, bit) ((value) |= (1UL << (bit)))
