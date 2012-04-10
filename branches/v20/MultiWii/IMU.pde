@@ -3,11 +3,7 @@ void computeIMU () {
   static int16_t gyroADCprevious[3] = {0,0,0};
   int16_t gyroADCp[3];
   int16_t gyroADCinter[3];
-//  static int16_t lastAccADC[3] = {0,0,0};
   static uint32_t timeInterleave = 0;
-#if defined(TRI)
-  static int16_t gyroYawSmooth = 0;
-#endif
 
   //we separate the 2 situations because reading gyro values with a gyro only setup can be acchieved at a higher rate
   //gyro+nunchuk: we must wait for a quite high delay betwwen 2 reads to get both WM+ and Nunchuk data. It works with 3ms
@@ -18,9 +14,6 @@ void computeIMU () {
     timeInterleave=micros();
     WMP_getRawADC();
     getEstimatedAttitude(); // computation time must last less than one interleaving delay
-    #if BARO
-      getEstimatedAltitude();
-    #endif 
     while((micros()-timeInterleave)<INTERLEAVING_DELAY) ; //interleaving delay between 2 consecutive reads
     timeInterleave=micros();
     while(WMP_getRawADC() != 1) ; // For this interleaving reading, we must have a gyro update at this point (less delay)
@@ -32,12 +25,15 @@ void computeIMU () {
       gyroADCprevious[axis] = gyroADC[axis];
     }
   } else {
-    if (ACC) {
+    #if ACC
       ACC_getADC();
       getEstimatedAttitude();
-      if (BARO) getEstimatedAltitude();
-    }
-    if (GYRO) Gyro_getADC(); else WMP_getRawADC();
+    #endif
+    #if GYRO
+      Gyro_getADC();
+    #else
+      WMP_getRawADC();
+    #endif
     for (axis = 0; axis < 3; axis++)
       gyroADCp[axis] =  gyroADC[axis];
     timeInterleave=micros();
@@ -47,7 +43,11 @@ void computeIMU () {
     } else {
        while((micros()-timeInterleave)<650) ; //empirical, interleaving delay between 2 consecutive reads
     }
-    if (GYRO) Gyro_getADC(); else WMP_getRawADC();
+    #if GYRO
+      Gyro_getADC();
+    #else
+      WMP_getRawADC();
+    #endif
     for (axis = 0; axis < 3; axis++) {
       gyroADCinter[axis] =  gyroADC[axis]+gyroADCp[axis];
       // empirical, we take a weighted value of the current and the previous values
@@ -56,7 +56,15 @@ void computeIMU () {
       if (!ACC) accADC[axis]=0;
     }
   }
-  #if defined(TRI)
+  #if defined(GYRO_SMOOTHING)
+    static uint8_t Smoothing[3]  = GYRO_SMOOTHING; // How much to smoothen with per axis
+    static int16_t gyroSmooth[3] = {0,0,0};
+    for (axis = 0; axis < 3; axis++) {
+      gyroData[axis] = (gyroSmooth[axis]*(Smoothing[axis]-1)+gyroData[axis]+1)/Smoothing[axis];
+      gyroSmooth[axis] = gyroData[axis];
+    }
+  #elif defined(TRI)
+    static int16_t gyroYawSmooth = 0;
     gyroData[YAW] = (gyroYawSmooth*2+gyroData[YAW]+1)/3;
     gyroYawSmooth = gyroData[YAW];
   #endif
@@ -66,7 +74,7 @@ void computeIMU () {
 // Simplified IMU based on "Complementary Filter"
 // Inspired by http://starlino.com/imu_guide.html
 //
-// adapted by ziss_dm : http://wbb.multiwii.com/viewtopic.php?f=8&t=198
+// adapted by ziss_dm : http://www.multiwii.com/forum/viewtopic.php?f=8&t=198
 //
 // The following ideas was used in this project:
 // 1) Rotation matrix: http://en.wikipedia.org/wiki/Rotation_matrix
@@ -80,7 +88,7 @@ void computeIMU () {
 // Modified: 19/04/2011  by ziss_dm
 // Version: V1.1
 //
-// code size deduction and tmp vector intermediate step for vector rotation computation: October 2011 by Alex
+// code size reduction and tmp vector intermediate step for vector rotation computation: October 2011 by Alex
 // **************************************************
 
 //******  advanced users settings *******************
@@ -88,14 +96,13 @@ void computeIMU () {
 /* Increasing this value would reduce ACC noise (visible in GUI), but would increase ACC lag time*/
 /* Comment this if  you do not want filter at all.*/
 /* Default WMC value: 8*/
-#define ACC_LPF_FACTOR 8
+#define ACC_LPF_FACTOR 4
 
 /* Set the Low Pass Filter factor for Magnetometer */
 /* Increasing this value would reduce Magnetometer noise (not visible in GUI), but would increase Magnetometer lag time*/
 /* Comment this if  you do not want filter at all.*/
 /* Default WMC value: n/a*/
-#define MG_LPF_FACTOR 4
-
+//#define MG_LPF_FACTOR 4
 /* Set the Gyro Weight for Gyro/Acc complementary filter */
 /* Increasing this value would reduce and delay Acc influence on the output of the filter*/
 /* Default WMC value: 300*/
@@ -138,7 +145,7 @@ typedef union {
 } t_fp_vector;
 
 int16_t _atan2(float y, float x){
-  #define fp_is_neg(val) ((((byte*)&val)[3] & 0x80) != 0)
+  #define fp_is_neg(val) ((((uint8_t*)&val)[3] & 0x80) != 0)
   float z = y / x;
   int16_t zi = abs(int16_t(z * 100)); 
   int8_t y_neg = fp_is_neg(y);
@@ -172,7 +179,7 @@ static float HRM[2] = {1,0};
 
 void getEstimatedAttitude(){
   uint8_t axis;
-  int16_t accMag = 0;
+  int32_t accMag = 0;
 #if MAG
   static t_fp_vector EstM;
 #endif
@@ -193,14 +200,15 @@ void getEstimatedAttitude(){
   for (axis = 0; axis < 3; axis++) {
     deltaGyroAngle[axis] = gyroADC[axis]  * scale;
     #if defined(ACC_LPF_FACTOR)
-      accTemp[axis] = (accTemp[axis] - (accTemp[axis] >>4)) + accADC[axis];
-      accSmooth[axis] = accTemp[axis]>>4;
+      accTemp[axis] = (accTemp[axis] - (accTemp[axis] >>ACC_LPF_FACTOR)) + accADC[axis];
+      accSmooth[axis] = accTemp[axis]>>ACC_LPF_FACTOR;
       #define ACC_VALUE accSmooth[axis]
     #else  
       accSmooth[axis] = accADC[axis];
       #define ACC_VALUE accADC[axis]
     #endif
-    accMag += (ACC_VALUE * 10 / (int16_t)acc_1G) * (ACC_VALUE * 10 / (int16_t)acc_1G);
+//    accMag += (ACC_VALUE * 10 / (int16_t)acc_1G) * (ACC_VALUE * 10 / (int16_t)acc_1G);
+    accMag += (int32_t)ACC_VALUE*ACC_VALUE ;
     #if MAG
       #if defined(MG_LPF_FACTOR)
         mgSmooth[axis] = (mgSmooth[axis] * (MG_LPF_FACTOR - 1) + magADC[axis]) / MG_LPF_FACTOR; // LPF for Magnetometer values
@@ -210,7 +218,8 @@ void getEstimatedAttitude(){
       #endif
     #endif
   }
-
+  accMag = accMag*100/((int32_t)acc_1G*acc_1G);
+  
   rotateV(&EstG.V,deltaGyroAngle);
   #if MAG
     rotateV(&EstM.V,deltaGyroAngle);
@@ -227,7 +236,7 @@ void getEstimatedAttitude(){
   if ( ( 36 < accMag && accMag < 196 ) || smallAngle25 )
     for (axis = 0; axis < 3; axis++) {
       int16_t acc = ACC_VALUE;
-      #if not defined(TRUSTED_ACCZ)
+      #if !defined(TRUSTED_ACCZ)
         if (smallAngle25 && axis == YAW)
           //We consider ACCZ = acc_1G when the acc on other axis is small.
           //It's a tweak to deal with some configs where ACC_Z tends to a value < acc_1G when high throttle is applied.
