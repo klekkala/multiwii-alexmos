@@ -240,7 +240,9 @@ void GYRO_Common() {
     gyroADC[axis] = mediaMobileGyroADCSum[axis] / MMGYROVECTORLENGHT;
 #else 
   for (axis = 0; axis < 3; axis++) {
-    gyroADC[axis]  -= gyroZero[axis];
+    // alexmos: more zero precision
+    gyroADC[axis] = ((int32_t)gyroADC[axis] * 10 - gyroZero[axis])/10;
+    //gyroADC[axis]  -= gyroZero[axis];
     //anti gyro glitch, limit the variation between two consecutive readings
     gyroADC[axis] = constrain(gyroADC[axis],previousGyroADC[axis]-800,previousGyroADC[axis]+800);
 #endif    

@@ -115,7 +115,7 @@
 //#define FREEIMUv03      // FreeIMU v0.3 and v0.3.1
 //#define FREEIMUv035     // FreeIMU v0.3.5 no baro
 //#define FREEIMUv035_MS  // FreeIMU v0.3.5_MS                                                <- confirmed by Alex
-#define FREEIMUv035_BMP // FreeIMU v0.3.5_BMP
+//#define FREEIMUv035_BMP // FreeIMU v0.3.5_BMP
 //#define FREEIMUv04      // FreeIMU v0.4 with MPU6050, HMC5883L, MS561101BA                  <- confirmed by Alex
 //#define FREEIMUv043     // same as FREEIMUv04 with final MPU6050 (with the right ACC scale)
 //#define PIPO            // 9DOF board from erazz
@@ -136,7 +136,7 @@
 //#define DROTEK_6DOF_MPU // Drotek 6DOF with MPU6050
 //#define MONGOOSE1_0     // mongoose 1.0    http://www.fuzzydrone.org/
 //#define CRIUS_LITE      // Crius MultiWii Lite
-//#define CRIUS_SE        // Crius MultiWii SE
+#define CRIUS_SE        // Crius MultiWii SE
 
 //if you use independent sensors
 //leave it commented if you already checked a specific board above
@@ -551,7 +551,12 @@
 
 /* Output some vars to GUI (for PID tuning) 
 * TODO: describe vars and tuning algorithm */
-//#define ALT_DEBUG
+#define ALT_DEBUG
+
+/* Don't apply altitude correction if altitude within this limit, cm 
+	(usefull for not-precise baro to prevent small oscillations) */
+#define BARO_DEADBAND 50
+
 
 /* Correct throttle according to Z-axis inclination */
 /* Default is 100. Don't set above 200 */
@@ -581,8 +586,10 @@ Sensors currently supported:
 #define OF_DEADBAND 15
 /* Rotate I-term with heading rotation. It will well compensate wind */
 #define OF_ROTATE_I
+/* Low-pass filter factor to prevent shaking. Possible values 1..8.  Default is 4. */
+#define OF_LPF_FACTOR 4
 /* Debug to GUI */
-#define OF_DEBUG
+//#define OF_DEBUG
 
 
 
