@@ -278,17 +278,9 @@ void getEstimatedAttitude(){
 }
 
 
-/* alexmos: baro + ACC altitude estimator */
-/* It outputs altitude, velocity and 'pure' acceleration projected on Z axis (with 1G substracted) */
-/* It has a very good resistance to inclinations, horisontal movements, ACC drift and baro noise. */
 
-/* Below are rates of correction estimated altitude, acceleration and velocity. */
-/* You can increse it if more precise BARO used */
-#define ALT_P 0.01f // estimated altitude correction (default (0.01)
-#define ACC_I 0.0001f // ACC zero calibration (default 0.0001)
-#define VEL_P 0.5f // velocity correction (default 0.5)
-#define VEL_DAMP 0.0002f // velocity damping factor (helps remove oscillations) default 0.0002
 
+/* Exponential moving average filter (optimized for integers) with factor = 2^n */
 typedef struct avg_var16 {
   int32_t buf; // internal bufer to store non-rounded average value
   int16_t res; // result (rounded to int)
@@ -298,24 +290,49 @@ typedef struct avg_var8 {
   int16_t buf; // internal bufer to store non-rounded average value
   int8_t res; // result (rounded to int)
 } t_avg_var8;
+/* n=(1..16) */
+void average16(struct avg_var16 *avg, int16_t cur, int8_t n) {
+	avg->buf+= cur - avg->res;
+	avg->res = avg->buf >> n;
+}
+/* n=(1..8) */
+void average8(struct avg_var8 *avg, int8_t cur, int8_t n) {
+	avg->buf+= cur - avg->res;
+	avg->res = avg->buf >> n;
+}
 
-static float accVelScale = 0;
+
+
+/* alexmos: baro + ACC altitude estimator */
+/* It outputs altitude, velocity and 'pure' acceleration projected on Z axis (with 1G substracted) */
+/* It has a very good resistance to inclinations, horisontal movements, ACC drift and baro noise. */
+
+/* Below are rates of correction estimated altitude, acceleration and velocity. */
+/* You can increse it if more precise BARO used */
+#define ALT_P 0.1f // estimated altitude correction (default (0.05)
+#define ACC_I 0.0001f // ACC zero calibration (default 0.0001)
+#define VEL_P 0.1f // velocity correction (default 0.1)
+#define VEL_DAMP 0.005f // velocity damping factor (helps remove oscillations) default 0.005
+
+
 void getEstimatedAltitude(){
-  static int8_t initDone = 0, cnt = 0;
+  static int8_t initDone = 0;
   static float alt = 0; // cm
   static float vel = 0; // cm/sec
  	static float errI[3] = {0,0,0};
   static float thrWindCorrScale; // config variables
+	static float accVelScale = 0;
   float accZ, err, tmp;
-  static t_avg_var16 avgError = {0,0}, avgErrorFast = {0,0}, baroSonarDiff = {0,0}; 
-  int16_t errA;
+  static t_avg_var16 baroSonarDiff = {0,0}, avgError = {0,0}, avgAlt = {0,0}; 
   int32_t sensorAlt;
   int8_t axis;
-  
-  #ifdef ALT_DEBUG
-  	int16_t curtime = micros();
-  #endif
-  
+
+	// delta time
+	static uint16_t prevTime = 0;
+	uint16_t tmpTime = micros();
+	uint16_t dTime = tmpTime - prevTime;
+	prevTime = tmpTime;
+    
   // soft start
   if(!initDone) {
   	if(cycleCnt > 100 && BaroAlt != 0) { // start only if sensor data avaliable
@@ -329,7 +346,6 @@ void getEstimatedAltitude(){
 	  	accVelScale = 9.80665f / acc_1G / 10000.0f;
 	  	thrWindCorrScale = ((float)THROTTLE_WIND_CORRECTION) / acc_1G / acc_1G;
 		  EstG.A[2] = accADC[2]; // G-vector not initiated properly at start, do it here
-
 	  	errI[2] = accADC[2] - (int16_t)acc_1G; 
 
 	  	initDone = 1;
@@ -345,7 +361,7 @@ void getEstimatedAltitude(){
 
 		// Get difference between sonar and baro and slightly average it in time
 		if(SonarErrors < SONAR_ERROR_MAX) {
-			average16(&baroSonarDiff, constrain(SonarAlt - sensorAlt, -32000, 32000), 8);
+			average16(&baroSonarDiff, constrain(SonarAlt - sensorAlt, -32000, 32000), 7);
 		}
 
 		// Check if sonar is not crazy: its value compared to baro should not go outside window +/-3m
@@ -360,41 +376,20 @@ void getEstimatedAltitude(){
 				sensorAlt = (SonarAlt * (SONAR_ERROR_MAX - SonarErrors) + sensorAlt * SonarErrors)/SONAR_ERROR_MAX;
 			}
 		} else {
-			// Sonar is crasy, so use baro only + sonar value on the end of 2m-limits
+			// Sonar is crasy, so use baro only + sonar value on the end of limits
 			sensorAlt+= constrain(baroSonarDiff.res, -300, 300);
 		}
   #endif
 
   
   // error between estimated alt and BARO alt
-  errA = constrain((int16_t)((int32_t)alt - sensorAlt), -500, 500);
-
-	// average error
-	average16(&avgErrorFast, errA, 7);
-	if(cnt&1 > 0) average16(&avgError, abs(avgErrorFast.res), 8); // double averge to prevent signed error cancellation
-
-  // Trust more ACC if in AltHold mode and sonar is not used (or gives errors)
-	#ifdef SONAR
-		if(baroMode && SonarErrors > SONAR_ERROR_MAX>>1) {
-	#else
-		if(baroMode) {
-	#endif
-	  // increase error up to 5 times if Z-angle > 15 degree
-	  if(cosZ < 95) errA = (errA * constrain(95 - cosZ, 0, 40))>>3; // 16 bit ok: 500 * 40 = 20000
-
-  	// decrease error up to 5 times if estimated alt is very close to sensor's alt
-	  if(avgError.res < 50) {  // average error < 50cm
-	  	errA = (errA*(14 + avgError.res))>>6; // 16 bits ok: 500 * 60 = 30000
-	  }
-	}
-
-  err = errA * ALT_P;
+  //average16(&avgError, constrain((int16_t)((int32_t)alt - sensorAlt), -500, 500), 5);
+  err = constrain((int16_t)((int32_t)alt - sensorAlt), -500, 500) * ALT_P;
   
   // I term of error for each axis
   // (If Z angle is not zero, we should take X and Y axis into account and correct them too.
   // We will spread I error proportional to Cos(angle) for each axis
   // TODO: we got "real" ACC zero in this calibration procedure and may use it to correct ACC in angle estimation, too
-  
   tmp = err*ACC_I;
 	errI[2]+= EstG.A[2] * tmp;
 	if(abs(cosZ) < 95) {
@@ -407,54 +402,38 @@ void getEstimatedAltitude(){
 	tmp = (accADC[0] - errI[0]) * EstG.V.X + (accADC[1] - errI[1]) * EstG.V.Y;
 	accZ = (tmp + (accADC[2] - errI[2]) * EstG.V.Z) * InvG - acc_1G;
 	
-
-
-
  	#if THROTTLE_ANGLE_CORRECTION > 0
 	  // Correct throttle to keep constant altitude in fast movement
- 			// 16 bit ok: 200*150 = 30000
- 		// DEBUG in flight
- 		throttleAngleCorrection = THROTTLE_ANGLE_CORRECTION * constrain((int16_t)(tmp * thrWindCorrScale) + 100 - cosZ, -150, 150) / 100;
+ 		throttleAngleCorrection = THROTTLE_ANGLE_CORRECTION * constrain((int16_t)(tmp * thrWindCorrScale) + 100 - cosZ, -150, 150) / 100; // 16 bit ok: 200*150 = 30000
  	#endif
 
   
-  // Integrator - velocity, cm/sec, and correction (velocity damper strength depend on average error)
-  vel+= accZ*accVelScale*cycleTime - err*VEL_P - vel * avgError.res * VEL_DAMP;;
+  // Integrator - velocity, cm/sec
+  vel+= accZ*accVelScale*dTime - err*VEL_P - vel*VEL_DAMP;
   
-	// Integrator - altitude, cm, and correction
-	alt+= vel * cycleTime * 1.0e-6f - err;
+	// Integrator - altitude, cm
+	alt+= vel * dTime * 1.0e-6f - err;
+	
+	average16(&avgAlt, alt, 5);
 
 	  
   // Save result
-  EstAlt = alt;
+  //EstAlt = alt;
+  EstAlt = avgAlt.res;
   EstVelocity = vel;
 
   
   // debug to GUI
   #ifdef ALT_DEBUG
   	debug1 = sensorAlt;
-	  //debug2 = throttleAngleCorrection;
-	  debug2 = avgError.res;
+	  //debug2 = avgError.res;
+	  debug2 = vel*10;
 	  debug3 = errI[2]*100;
 	  //debug4 = (int16_t)micros() - curtime;
-	  heading = vel;
 	#endif
-
-  cnt++;
 }
 
 
-/* Exponential moving average filter (optimized for integers) with factor = 2^n */
-/* n=(1..16) */
-void average16(struct avg_var16 *avg, int16_t cur, int8_t n) {
-	avg->buf+= cur - avg->res;
-	avg->res = avg->buf >> n;
-}
-/* n=(1..8) */
-void average8(struct avg_var8 *avg, int8_t cur, int8_t n) {
-	avg->buf+= cur - avg->res;
-	avg->res = avg->buf >> n;
-}
 
 float fsq(float x){return x * x;}
 
@@ -497,78 +476,4 @@ void rotate_heading_ccw16(int16_t *V) {
 
 
 
-//alexmos: OpticalFlow for horisontal velocity estimation
-#ifdef OPTFLOW
-
-/* Set ACC weight compared to OF-sensor weight in horizontal velocity estimation */
-/* Comment it to disable ACC-OF sensor fusion */
-//#define OF_ACC_FACTOR 10.0f 
-/* Low-pass filter factor to prevent shaking. Default is 4. */
-#define OF_LPF_FACTOR 4
-
-void getEstHVel() {
-	int16_t vel_of[2]; // velocity from OF-sensor, cm/sec
-	static float vel[2] = { 0, 0 }; // estimated velocity, cm/sec
-	int8_t axis;
-	static int16_t prevAngle[2] = { 0, 0 };
-	static t_avg_var16 avgVel[2] = { {0,0}, {0,0} }; 
-	static t_avg_var8 avgSqual = {0,0};
-	static uint16_t prevTime = 0;
-	uint16_t alt; // alt in mm*10
-
-	uint16_t tmpTime = micros();
-	uint16_t dTime = tmpTime - prevTime;
-	prevTime = tmpTime;
-	
-	// get normalized sensor values
-	optflow_get();
-	
-	// read and average surface quality
-	average8(&avgSqual, (int8_t)optflow_squal(), 5);
-
-	if(cosZ > 70 && avgSqual.res > 10) {
-		// above 3m, freeze altitude (it means less stabilization on high altitude)
- 		// .. and reduce signal if surface quality <50
-		alt = constrain((int16_t)EstAlt, 30, 300) * min(avgSqual.res,50) * 2; // 16 bit ok: 300 * 50 * 2 = 30000;
-	} else {
-		alt = 0;
-	}
-	
-	for(axis=0;axis<2;axis++) {
-		// Get velocity from OF-sensor only in good conditions
-		if(alt != 0) { 
-			// remove shift in position due to inclination: delta_angle * PI / 180 * 100
-			// mm/sec(10m) * cm / us   ->    cm / sec
-			vel_of[axis] = ((int32_t)optflow_pos[axis] + (angle[axis] - prevAngle[axis]) * 17 ) * alt / dTime ; 
-		} else {
-			vel_of[axis] = 0;
-		}
-		
- 		#ifdef OF_ACC_FACTOR
-			// Projection of ACC vector on X,Y global axis (simplified version)
-	 		EstHAcc[axis] = (int16_t)EstG.A[axis] - ACC_VALUE;
-	 		
-	 		// Apply ACC-OF complementary filter
-	 		// TODO: test without acc (to reduce cycle time)
-	 		vel[axis] = ((vel[axis] + EstHAcc[axis]*accVelScale*dTime)*OF_ACC_FACTOR + vel_of[axis])/(1+OF_ACC_FACTOR);
-	 		
-	 		average16(&avgVel[axis], vel[axis], OF_LPF_FACTOR);
-	 	#else
-	 		average16(&avgVel[axis], vel_of[axis], OF_LPF_FACTOR);
-		#endif	 	
-	
-		EstHVel[axis] = constrain(avgVel[axis].res, -100, 100);
-		
-
-		prevAngle[axis] = angle[axis];
-	}
-	
-	#ifdef OF_DEBUG
-		debug2 = optflow_pos[0];
-		debug3 = avgSqual.res;
-		//debug4 = vel_of[0]*10;
-	#endif
-}
-#endif
-  
   

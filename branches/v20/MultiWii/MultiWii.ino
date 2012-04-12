@@ -691,6 +691,12 @@ void loop () {
           GPS_NewData();
           break;
         #endif
+      case 4:
+        taskOrder++; 
+        #ifdef OPTFLOW
+        	Optflow_update();
+          break;
+        #endif
       default:
         taskOrder=0;
         break;
@@ -727,23 +733,36 @@ void loop () {
 
       //alexmos: new Alt PID's calculations
       if(cosZ > 50) { // apply Alt correction only if inclination angle < 60 (skip in aerobatics)
-	      error = constrain( AltHold - EstAlt, -100, 100); //  +/-1m, if more - something wrong
+	      error = constrain( AltHold - EstAlt, -150, 150); //  +/-1.5m, if more - something wrong
 	      errorAltitudeI += error;
 	      errorAltitudeI = constrain(errorAltitudeI, -1000000, 1000000); 
 	      
-	      // AltPID = PTerm - DTerm
-	      // 16 bit ok: 255 * 100 = 25500
-	      AltPID = P8[PIDALT] * error / 50 - D8[PIDALT] * constrain(EstVelocity, -100, 100) / 10;
-	
-	      // Increase PID if sonar is used
+	      // Apply deadband for P-term and baro only
+	      #ifdef BARO_DEADBAND
+		     #ifdef SONAR
+		      if(SonarErrors >= SONAR_ERROR_MAX) { // not need it if sonar working
+		     #else
+		      {
+		     #endif
+			      if(error > BARO_DEADBAND) error-= BARO_DEADBAND;
+			      else if(error < -BARO_DEADBAND) error+= BARO_DEADBAND;
+			      else error = 0;
+			    }
+		    #endif
+	      
+	      // Increase P-term if sonar is used
 	      #if defined(SONAR) && defined(SONAR_BARO_PID_GAIN)
-	      	AltPID+=  constrain(AltPID, -200, 200) * (SONAR_ERROR_MAX - SonarErrors) / SONAR_ERROR_MAX * SONAR_BARO_PID_GAIN;
+	      	if(SonarErrors < SONAR_ERROR_MAX) {
+	      		error+=  constrain(error * (SONAR_ERROR_MAX - SonarErrors) / SONAR_ERROR_MAX * SONAR_BARO_PID_GAIN, -150, 150);
+	      	}
 	      #endif
+	      
+	      
+	      // AltPID = PTerm - DTerm + ITerm
+	      AltPID = P8[PIDALT] * error / 50 - D8[PIDALT] * constrain(EstVelocity, -150, 150) / 10  // 16 bit ok: 200 * 150 = 30000
+	      					+ (int16_t)(I8[PIDALT] * errorAltitudeI / 100000);
 
-	      // ITerm is not included in sonar PID gain
-	      AltPID+= (int16_t)(I8[PIDALT] * errorAltitudeI / 100000);
-
-	      rcCommand[THROTTLE] = initialThrottleHold + constrain(AltPID, -100, 200);
+	      rcCommand[THROTTLE] = initialThrottleHold + constrain(AltPID, -200, 200);
 
 	      // Debug PID controller to GUI
 	      #ifdef ALT_DEBUG
@@ -784,73 +803,6 @@ void loop () {
 
   
   
-  // alexmos: position hold with Optical Flow sensor
-  #ifdef OPTFLOW
-		static int16_t optflow_angle[2] = { 0, 0 };
-		static int16_t optflowErrorI[2] = { 0, 0 };
-		static int16_t prevHeading = 0;
-		static int8_t optflowUse = -1;
-		
-	  // enable OPTFLOW only in LEVEL mode and if GPS is not used
-	  if(accMode == 1 && optflowMode == 1 && GPSModeHome == 0) {
-  		// init first time mode enabled
-  		if(optflowUse == -1) {
-		  	optflowErrorI[0] = 0;	optflowErrorI[1] = 0;
- 				prevHeading = heading;
- 				optflowUse = 1;
- 			}
-  		
-			// Read sensor every cycle to prevent internal buffer overflow
-			optflow_update();
-
-			// Do calculations every 8th cycle (~30Hz)
-			if(cycleCnt%8 == 0) {
-	  		// Rotate I to follow global axis
-	  		#ifdef OF_ROTATE_I
-		      int16_t dif = heading - prevHeading;
-		      if (dif <= - 180) dif += 360;
-		      else if (dif >= + 180) dif -= 360;
-	  			if(abs(dif) > 5) { // rotate by 5-degree steps
-	  				rotate16(optflowErrorI, dif*10);
-	  				prevHeading = heading;
-	  			}
-	  		#endif
-
- 	 			// Use sensor only inside DEADBAND
-	  		if(abs(rcCommand[ROLL]) < OF_DEADBAND && abs(rcCommand[PITCH]) < OF_DEADBAND) {
-					getEstHVel();
-
-			  	for(axis=0; axis<2; axis++) {
-			  		// correction should be less near deadband limits
-		  			EstHVel[axis] = EstHVel[axis] * (OF_DEADBAND - abs(rcCommand[axis])) / OF_DEADBAND; // 16 bit ok: 100*100 = 10000
-				  	
-			  		optflowErrorI[axis]+= EstHVel[axis]; 
-			  		optflowErrorI[axis] = constrain(optflowErrorI[axis], -20000, 20000);
-
-			  		optflow_angle[axis] = EstHVel[axis] * P8[PIDVEL] / 50;  // 16 bit ok: 100 * 200 = 20000
-			  		#ifdef OF_USE_ACC
-			  			optflow_angle[axis]-= constrain(EstHAcc[axis], -100, 100) * D8[PIDVEL] / 50;  // 16 bit ok: 100*200 = 20000
-			  		#endif
-					}		  		
-		  	} else {
-		  		optflow_angle[0] = 0;	optflow_angle[1] = 0;
-		  	}
-
-  			// Apply I-term unconditionally
-		  	for(axis=0; axis<2; axis++) {
-	  			optflow_angle[axis] = constrain(optflow_angle[axis] + (int16_t)((int32_t)optflowErrorI[axis] * I8[PIDVEL] / 5000),
-	  				-300, 300);
-	  		}
-
-		  	#ifdef OF_DEBUG
-		  		debug4 = optflow_angle[0]*10;
-		  	#endif
-			}
-	  } else if(optflowUse != -1) { // switch mode off
-	  	optflow_angle[0] = 0; optflow_angle[1] = 0;
-	  	optflowUse = -1;
-	  }
-	#endif
   
   //**** PITCH & ROLL & YAW PID ****    
   for(axis=0;axis<3;axis++) {
