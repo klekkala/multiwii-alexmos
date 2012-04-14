@@ -7,7 +7,7 @@
 //#define MINTHROTTLE 1300 // for Turnigy Plush ESCs 10A
 //#define MINTHROTTLE 1120 // for Super Simple ESCs 10A
 //#define MINTHROTTLE 1220
-#define MINTHROTTLE 1200 
+#define MINTHROTTLE 1150 
 
 /* The type of multicopter */
 //#define GIMBAL
@@ -87,10 +87,8 @@
 
 /* introduce a deadband around the stick center
    Must be greater than zero, comment if you dont want a deadband on roll, pitch and yaw */
-//#define DEADBAND 5
+//#define DEADBAND 10
 
-/* deadband around throttle setpoint in BARO mode  */
-#define ALT_HOLD_DEADBAND 50
 
 /* interleaving delay in micro seconds between 2 readings WMP/NK in a WMP+NK config
    if the ACC calibration time is very long (20 or 30s), try to increase this delay up to 4000
@@ -540,14 +538,17 @@
 #define SONAR
 #define SONAR_PING A2 // PIN that trigger measure
 #define SONAR_READ 12 // PIN to read response pulse, 12 or 8
-//#define SONAR_DEBUG // output some data to GUI (replacing MAG and debug variables)
-/* Maximum measuring distance, cm. Set it 10% lower than specified in datasheet */
+/* Maximum measuring distance, cm. Set it 1 meter lower than specified in datasheet */
+/* Don't set above 1000! */
 #define SONAR_MAX_DISTANCE 300
-/* Maximum number of errors to switch to baro (integer 1..20) */
-#define SONAR_ERROR_MAX 10
 /* In sonar mode, increase PID strength by this value (integer > 0) */
 /* Comment to disable gain */
 #define SONAR_BARO_PID_GAIN 1
+//#define SONAR_DEBUG // output some data to GUI (replacing MAG and debug variables)
+
+/* Deadband around throttle setpoint in Alt Hold mode  */
+#define ALT_HOLD_DEADBAND 50
+
 
 /* Output some vars to GUI (for PID tuning) 
 * TODO: describe vars and tuning algorithm */
