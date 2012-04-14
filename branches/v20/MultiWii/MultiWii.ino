@@ -12,7 +12,9 @@ March  2012     V2.0
 #include "def.h"
 #include <avr/pgmspace.h>
 #define  VERSION  20
+// alexmos
 #include "OpticalFlow.h"
+#include "Sonar.h"
 
 /*********** RC alias *****************/
 #define ROLL       0
@@ -46,7 +48,7 @@ March  2012     V2.0
 #define PIDITEMS 8
 
 static uint32_t currentTime = 0;
-static uint32_t previousTime = 0;
+static uint16_t previousTime = 0;
 static uint16_t cycleTime = 0;     // this is the number in micro second to achieve a full loop, it can differ a little and is taken into account in the PID loop
 static uint16_t cycleCnt = 0;
 static uint16_t calibratingA = 0;  // the calibration is done is the main loop. Calibrating decreases at each cycle down to 0, then we enter in a normal mode.
@@ -103,7 +105,7 @@ static uint16_t AccInflightCalibrationActive = 0;
 static uint32_t pMeter[PMOTOR_SUM + 1];  // we use [0:7] for eight motors,one extra for sum
 static uint8_t pMeterV;                  // dummy to satisfy the paramStruct logic in ConfigurationLoop()
 static uint32_t pAlarm;                  // we scale the eeprom value from [0:255] to this value we can directly compare to the sum in pMeter[6]
-static uint8_t powerTrigger1 = 0;       // trigger for alarm based on power consumption
+static uint8_t powerTrigger1 = 0;        // trigger for alarm based on power consumption
 static uint16_t powerValue = 0;          // last known current
 static uint16_t intPowerMeterSum, intPowerTrigger1;
 
@@ -180,14 +182,9 @@ static uint16_t GPS_altitude,GPS_speed;                      // altitude in 0.1m
 static uint8_t  GPS_update = 0;                              // it's a binary toogle to distinct a GPS position update
 static int16_t  GPS_angle[2];                                // it's the angles that must be applied for GPS correction
 
-// **********************
-// Sonar
-// **********************
-#ifdef SONAR
-	static int16_t SonarAlt = 0; // distance, cm (0..SONAR_MAX_DISTANCE)
-	static uint8_t SonarErrors = 0; // errors count (0..SONAR_ERROR_MAX). 
-#endif
 
+
+// alexmos
 static int8_t cosZ = 100; // cos(angleZ)*100
 static int16_t throttleAngleCorrection = 0; // correction oh throttle in lateral wind
 static uint8_t  buzzerFreq;         //delay between buzzer ring
@@ -218,7 +215,6 @@ void annexCode() { // this code is excetuted at each loop and won't interfere wi
   #ifdef VBAT
     static uint8_t vbatTimer = 0;
   #endif
-  static uint8_t  buzzerFreq;         // delay between buzzer ring
   uint8_t axis,prop1,prop2;
   #if defined(POWERMETER_HARD)
     uint16_t pMeterRaw;               // used for current reading
@@ -286,11 +282,11 @@ void annexCode() { // this code is excetuted at each loop and won't interfere wi
      powerValue = ( PSENSORNULL > pMeterRaw ? PSENSORNULL - pMeterRaw : pMeterRaw - PSENSORNULL); // do not use abs(), it would induce implicit cast to uint and overrun
      if ( powerValue < 333) {  // only accept reasonable values. 333 is empirical
      #ifdef LOG_VALUES
-         if (powerValue > powerMax) powerMax = powerValue;
+        if (powerValue > powerMax) powerMax = powerValue;
      #endif
      } else {
         powerValue = 333;
-       }
+     }        
      pMeter[PMOTOR_SUM] += (uint32_t) powerValue;
   }
   #endif
@@ -656,10 +652,9 @@ void loop () {
       } else {
         GPSModeHold = 0;
       }
-    // alexmos: use GPSHome checkbox for opticalFlow mode, bacause no special box in GUI
-    // TODO: change to GPSHold
+    // alexmos: use GPSHold checkbox for opticalFlow mode, bacause no special box in GUI
     #elif defined(OPTFLOW)
-      if (rcOptions[BOXGPSHOME]) {optflowMode = 1;}
+      if (rcOptions[BOXGPSHOLD]) {optflowMode = 1;}
       else optflowMode = 0;
     #endif
     if (rcOptions[BOXPASSTHRU]) {passThruMode = 1;}
@@ -739,11 +734,7 @@ void loop () {
 	      
 	      // Apply deadband for P-term and baro only
 	      #ifdef BARO_DEADBAND
-		     #ifdef SONAR
-		      if(SonarErrors >= SONAR_ERROR_MAX) { // not need it if sonar working
-		     #else
-		      {
-		     #endif
+	      	if(!SONAR_USED) {
 			      if(error > BARO_DEADBAND) error-= BARO_DEADBAND;
 			      else if(error < -BARO_DEADBAND) error+= BARO_DEADBAND;
 			      else error = 0;
@@ -752,7 +743,7 @@ void loop () {
 	      
 	      // Increase P-term if sonar is used
 	      #if defined(SONAR) && defined(SONAR_BARO_PID_GAIN)
-	      	if(SonarErrors < SONAR_ERROR_MAX) {
+	      	if(SONAR_USED) {
 	      		error+=  constrain(error * (SONAR_ERROR_MAX - SonarErrors) / SONAR_ERROR_MAX * SONAR_BARO_PID_GAIN, -150, 150);
 	      	}
 	      #endif
@@ -801,9 +792,6 @@ void loop () {
     }
   #endif
 
-  
-  
-  
   //**** PITCH & ROLL & YAW PID ****    
   for(axis=0;axis<3;axis++) {
     if (accMode == 1 && axis<2 ) { //LEVEL MODE
@@ -837,6 +825,7 @@ void loop () {
                             else PTerm -= (int32_t)gyroData[axis]*dynP8[axis]/10/8; // 32 bits is needed for calculation   
 
     if(axis < 2) { // except YAW axis, because it's correction very slow
+      delta          = gyroData[axis] - lastGyro[axis];                               // 16 bits is ok here, the dif between 2 consecutive gyro reads is limited to 800
       lastGyro[axis] = gyroData[axis];
       deltaSum       = delta1[axis]+delta2[axis]+delta;
       delta2[axis]   = delta1[axis];

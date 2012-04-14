@@ -360,7 +360,7 @@ void getEstimatedAltitude(){
   	sonarUpdate();
 
 		// Get difference between sonar and baro and slightly average it in time
-		if(SonarErrors < SONAR_ERROR_MAX) {
+		if(SONAR_USED) {
 			average16(&baroSonarDiff, constrain(SonarAlt - sensorAlt, -32000, 32000), 7);
 		}
 
@@ -372,7 +372,7 @@ void getEstimatedAltitude(){
 			if(SonarErrors == 0) {
 				sensorAlt = SonarAlt;
 			// Sonar gives some errors: use cross-section of SONAR and BARO altitudes to softly switch to baro
-			}  else if(SonarErrors < SONAR_ERROR_MAX) {
+			}  else if(SONAR_USED) {
 				sensorAlt = (SonarAlt * (SONAR_ERROR_MAX - SonarErrors) + sensorAlt * SonarErrors)/SONAR_ERROR_MAX;
 			}
 		} else {
@@ -414,7 +414,8 @@ void getEstimatedAltitude(){
 	// Integrator - altitude, cm
 	alt+= vel * dTime * 1.0e-6f - err;
 	
-	average16(&avgAlt, alt, 5);
+	// Apply LPF
+	average16(&avgAlt, alt, SONAR_USED ? 2 : 5);
 
 	  
   // Save result

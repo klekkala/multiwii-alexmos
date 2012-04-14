@@ -93,8 +93,12 @@ ISR(PCINT0_vect) {
 
 
 inline void incError() {
-	if(SonarErrors < SONAR_ERROR_MAX)
-		SonarErrors++;
+	if(SonarErrors < SONAR_ERROR_MAX) SonarErrors++;
+}
+
+inline void decError(uint8_t limit) {
+	if(SonarErrors > limit) SonarErrors--;
+	else SonarErrors = limit;
 }	
 
 // Trigger sonar measure and calculate distance
@@ -129,10 +133,9 @@ inline void sonarUpdate() {
 			  // trusted height depends on distance and angle. Above it, slowly increase errors
 			  uint16_t limit = (uint16_t)(cosZ - 50)*(uint16_t)(SONAR_MAX_DISTANCE-100)/50; // 16 bit ok: 50 * 1000max = 50000max
 			  if(dist < limit) {
-			  	SonarErrors = 0;
+			  	decError(0);
 			  } else { 
-			  	SonarErrors = (dist - limit) * SONAR_ERROR_MAX / 100;  // 16 bit ok: 1000max * 50max = 50000max
-			  	if(SonarErrors > SONAR_ERROR_MAX) SonarErrors =  SONAR_ERROR_MAX;
+			  	decError(min((dist - limit) * SONAR_ERROR_MAX / 100, SONAR_ERROR_MAX));  // 16 bit ok: 1000max * 50max = 50000max
 			  }
 		  } else {
 		  	incError();
