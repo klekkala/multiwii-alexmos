@@ -309,7 +309,7 @@ void average8(struct avg_var8 *avg, int8_t cur, int8_t n) {
 
 /* Below are rates of correction estimated altitude, acceleration and velocity. */
 /* You can increse it if more precise BARO used */
-#define ALT_P 0.1f // estimated altitude correction (default (0.05)
+#define ALT_P 0.1f // estimated altitude correction (default 0.1)
 #define ACC_I 0.0001f // ACC zero calibration (default 0.0001)
 #define VEL_P 0.1f // velocity correction (default 0.1)
 #define VEL_DAMP 0.005f // velocity damping factor (helps remove oscillations) default 0.005
@@ -320,10 +320,9 @@ void getEstimatedAltitude(){
   static float alt = 0; // cm
   static float vel = 0; // cm/sec
  	static float errI[3] = {0,0,0};
-  static float thrWindCorrScale; // config variables
-	static float accVelScale = 0;
+  static float thrWindCorrScale = 0, accVelScale = 0; // config vars
   float accZ, err, tmp;
-  static t_avg_var16 baroSonarDiff = {0,0}, avgError = {0,0}, avgAlt = {0,0}; 
+  static t_avg_var16 baroSonarDiff = {0,0}, avgAlt = {0,0}; 
   int32_t sensorAlt;
   int8_t axis;
 
@@ -383,7 +382,6 @@ void getEstimatedAltitude(){
 
   
   // error between estimated alt and BARO alt
-  //average16(&avgError, constrain((int16_t)((int32_t)alt - sensorAlt), -500, 500), 5);
   err = constrain((int16_t)((int32_t)alt - sensorAlt), -500, 500) * ALT_P;
   
   // I term of error for each axis
@@ -414,20 +412,21 @@ void getEstimatedAltitude(){
 	// Integrator - altitude, cm
 	alt+= vel * dTime * 1.0e-6f - err;
 	
-	// Apply LPF
-	average16(&avgAlt, alt, SONAR_USED ? 2 : 5);
 
-	  
-  // Save result
-  //EstAlt = alt;
-  EstAlt = avgAlt.res;
+	#if defined(ALT_LPF_FACTOR) && ALT_LPF_FACTOR>0
+		// Apply LPF
+		average16(&avgAlt, alt, ALT_LPF_FACTOR);
+	  EstAlt = avgAlt.res;
+	#else
+  	EstAlt = alt;
+  #endif
+  
   EstVelocity = vel;
 
   
   // debug to GUI
   #ifdef ALT_DEBUG
   	debug1 = sensorAlt;
-	  //debug2 = avgError.res;
 	  debug2 = vel*10;
 	  debug3 = errI[2]*100;
 	  //debug4 = (int16_t)micros() - curtime;

@@ -189,7 +189,6 @@ static int8_t cosZ = 100; // cos(angleZ)*100
 static int16_t throttleAngleCorrection = 0; // correction oh throttle in lateral wind
 static uint8_t  buzzerFreq;         //delay between buzzer ring
 
-
 void blinkLED(uint8_t num, uint8_t wait,uint8_t repeat) {
   uint8_t i,r;
   for (r=0;r<repeat;r++) {
@@ -454,7 +453,7 @@ void loop () {
   static int16_t initialThrottleHold;
   static int32_t errorAltitudeI = 0;
   static int16_t AltHold;
-  static int16_t AltHoldCorr = 0;
+  static int16_t AltHoldCorr = 0, magHoldCorr = 0;
   int16_t AltPID;
   
   cycleCnt++;
@@ -708,9 +707,30 @@ void loop () {
     if (abs(rcCommand[YAW]) <70 && magMode) {
       int16_t dif = heading - magHold;
       if (dif <= - 180) dif += 360;
-      if (dif >= + 180) dif -= 360;
+      else if (dif >= + 180) dif -= 360;
       if ( smallAngle25 ) rcCommand[YAW] -= dif*P8[PIDMAG]/30;  // 18 deg
     } else magHold = heading;
+    
+    
+    // alexmos: improved heading correction
+    /*
+    if (magMode) {
+    	magHoldCorr+= rcCommand[YAW];
+    	if(abs(magHoldCorr) > 1000) {
+    		magHold+= magHoldCorr/1000;
+    		magHoldCorr%= 1000;
+		    if (magHold <= - 180) magHold += 360;
+		    else if (magHold >= + 180) magHold -= 360;
+    	}
+      
+      if ( smallAngle25 ) {
+	      int16_t dif = heading - magHold;
+	      if (dif <= - 180) dif += 360;
+	      else if (dif >= + 180) dif -= 360;
+      	rcCommand[YAW] = dif*P8[PIDMAG]/30;
+      }
+    }*/
+    	
   #endif
 
   #if BARO
