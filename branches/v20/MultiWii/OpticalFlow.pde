@@ -22,13 +22,13 @@ static int16_t optflow_pos[2] = { 0, 0 }; // displacment (in mm*10 on height 1m)
 inline void Optflow_update() {
 	static int16_t optflowErrorI[2] = { 0, 0 };
 	static int16_t prevHeading = 0;
-	static int8_t optflowUse = -1;
+	static int8_t optflowUse = 0;
 	int8_t axis;
 	
   // enable OPTFLOW only in LEVEL mode and if GPS is not used
   if(accMode == 1 && optflowMode == 1 && GPSModeHome == 0) {
 		// init first time mode enabled
-		if(optflowUse == -1) {
+		if(!optflowUse) {
 	  	optflowErrorI[0] = 0;	optflowErrorI[1] = 0;
 			prevHeading = heading;
 			optflowUse = 1;
@@ -42,6 +42,7 @@ inline void Optflow_update() {
       int16_t dif = heading - prevHeading;
       if (dif <= - 180) dif += 360;
       else if (dif >= + 180) dif -= 360;
+
 			if(abs(dif) > 5) { // rotate by 5-degree steps
 				rotate16(optflowErrorI, dif*10);
 				prevHeading = heading;
@@ -75,9 +76,9 @@ inline void Optflow_update() {
   	#ifdef OF_DEBUG
   		debug4 = optflow_angle[0]*10;
   	#endif
-  } else if(optflowUse != -1) { // switch mode off
+  } else if(optflowUse) { // switch mode off
   	optflow_angle[0] = 0; optflow_angle[1] = 0;
-  	optflowUse = -1;
+  	optflowUse = 0;
   }
 }
 

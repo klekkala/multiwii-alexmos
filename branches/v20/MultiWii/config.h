@@ -534,6 +534,19 @@
 #define MAXCHECK 1850
 
 
+
+//------- alexmos: Alt Hold configuration -------//
+/* Deadband around throttle setpoint in Alt Hold mode  */
+#define ALT_HOLD_DEADBAND 50
+/* Output some vars to GUI (for PID tuning) 
+* TODO: describe vars and tuning algorithm */
+#define ALT_DEBUG
+/* Deadband for baro: Don't apply altitude correction if altitude within this limit, cm */
+#define BARO_DEADBAND 50
+/* Low-pass filter factor. (4..6 better noise filtering, 0..4 more robust response) */
+#define ALT_LPF_FACTOR 4
+
+
 /* Use ultrasonic sensor for ALT HOLD. (see Sonar.pde for details) */
 #define SONAR
 #define SONAR_PING A2 // PIN that trigger measure
@@ -546,31 +559,21 @@
 #define SONAR_BARO_PID_GAIN 1
 //#define SONAR_DEBUG // output some data to GUI (replacing MAG and debug variables)
 
-/* Deadband around throttle setpoint in Alt Hold mode  */
-#define ALT_HOLD_DEADBAND 50
 
-
-/* Output some vars to GUI (for PID tuning) 
-* TODO: describe vars and tuning algorithm */
-#define ALT_DEBUG
-
-/* Don't apply altitude correction if altitude within this limit, cm 
-	(usefull for not-precise baro to prevent small oscillations) */
-#define BARO_DEADBAND 50
 
 
 /* Correct throttle according to Z-axis inclination */
 /* Default is 100. Don't set above 200 */
 /* Set to 0 to disable this correction */
-#define THROTTLE_ANGLE_CORRECTION 150
+#define THROTTLE_ANGLE_CORRECTION 200
 /* Correct throttle to compensate aerodynamic lifting force and lateral wind (positive or negative, depending on speed and inclination) */
 /* Default is 200. */ 
 #define THROTTLE_WIND_CORRECTION 250
 
 
-/* alexmos: Optical Flow sensor for position hold. 
-VEL PID (P, I only) are used to control position. Works only in LEVEL mode. 
-
+//------------alexmos: Optical Flow sensor for position hold -----------//
+/* Activates by 'GPSHOLD' checkbox (LEVEL mode must be enabled)
+VEL(P, I) in GUI are used to PID tuning.
 Sensors currently supported: 
 	ADNS-5050 
 	(if you implement other sensor, let me know) 
@@ -587,8 +590,8 @@ Sensors currently supported:
 #define OF_DEADBAND 15
 /* Rotate I-term with heading rotation. It will well compensate wind */
 #define OF_ROTATE_I
-/* Low-pass filter factor to prevent shaking. Possible values 1..8.  Default is 4. */
-#define OF_LPF_FACTOR 4
+/* Low-pass filter factor to prevent shaking. Possible values 1..8.  Default is 5. */
+#define OF_LPF_FACTOR 5
 /* Debug to GUI */
 //#define OF_DEBUG
 
