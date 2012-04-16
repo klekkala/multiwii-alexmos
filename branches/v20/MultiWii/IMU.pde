@@ -309,7 +309,7 @@ void average8(struct avg_var8 *avg, int8_t cur, int8_t n) {
 
 /* Below are rates of correction estimated altitude, acceleration and velocity. */
 /* You can increse it if more precise BARO used */
-#define ALT_P 0.1f // estimated altitude correction (default 0.1)
+#define ALT_P 0.05f // estimated altitude correction (default 0.05)
 #define ACC_I 0.0001f // ACC zero calibration (default 0.0001)
 #define VEL_P 0.1f // velocity correction (default 0.1)
 #define VEL_DAMP 0.005f // velocity damping factor (helps remove oscillations) default 0.005
