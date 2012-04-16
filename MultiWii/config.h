@@ -535,7 +535,7 @@
 
 
 
-//------- alexmos: Alt Hold configuration -------//
+/************ alexmos: Alt Hold configuration **********/
 /* Deadband around throttle setpoint in Alt Hold mode  */
 #define ALT_HOLD_DEADBAND 50
 /* Output some vars to GUI (for PID tuning) 
@@ -571,18 +571,36 @@
 #define THROTTLE_WIND_CORRECTION 250
 
 
-//------------alexmos: Optical Flow sensor for position hold -----------//
-/* Activates by 'GPSHOLD' checkbox (LEVEL mode must be enabled)
-VEL(P, I) in GUI are used to PID tuning.
+
+/***** alexmos: Optical Flow sensor for position hold ********/
+/* Activated by 'GPSHOLD' checkbox (LEVEL mode must be enabled)
+	VEL(P, I) in GUI are used to PID tuning.
+
 Sensors currently supported: 
-	ADNS-5050 
-	(if you implement other sensor, let me know) 
+	ADNS-5050
+		connect and define pins: OF_SCLK, OF_SDIO, OF_NCS
+
+	ADNS-3080 (not tested yet)
+		connect and define pins: OF_SCLK, OF_MISO, OF_MOSI, OF_NCS, OF_RESET (optional)
+
+	...	(if you implement other sensor, let me know)
+
+Due to software SPI,  you can use any of free Arduino pins
 */
-#define OPTFLOW ADNS_5050
-/* SPI pins for sensor connection (you can use any of free pins) */
+#define OPTFLOW 5050
 #define OF_SCLK PITCHPIN
 #define OF_SDIO YAWPIN
 #define OF_NCS  ROLLPIN
+
+/*
+#define OPTFLOW 3080
+#define OF_SCLK ??
+#define OF_MISO ??
+#define OF_MOSI ??
+#define OF_NCS  ??
+//#define OF_RESET ??
+*/
+
 /* Lense focal distance, mm (set it for your own lense) 
  (How to check: debug4 in GUI should not react on ROLL tilt, but react on ROLL slide) */
 #define OF_FOCAL_DIST 9
