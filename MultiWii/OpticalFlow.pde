@@ -258,7 +258,7 @@ inline void	initOptflow()	{
 		delayMicroseconds(500);
 	#endif
 		
-	scale	=	(uint32_t)500000 / OF_FOCAL_DIST / 400;
+	scale	=	(uint32_t)500000 / OF_FOCAL_DIST / 1600;
 }
 
 /* Start motion	capture	*/
