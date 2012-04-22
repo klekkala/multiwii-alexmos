@@ -1,13 +1,13 @@
-/*******************************/
-/****CONFIGURABLE PARAMETERS****/
-/*******************************/
+/*************************************************************************************************/
+/****           CONFIGURABLE PARAMETERS                                                       ****/
+/*************************************************************************************************/
 
 /* Set the minimum throttle command sent to the ESC (Electronic Speed Controller)
    This is the minimum value that allow motors to run at a idle speed  */
 //#define MINTHROTTLE 1300 // for Turnigy Plush ESCs 10A
 //#define MINTHROTTLE 1120 // for Super Simple ESCs 10A
 //#define MINTHROTTLE 1220
-#define MINTHROTTLE 1200 
+#define MINTHROTTLE 1150 
 
 /* The type of multicopter */
 //#define GIMBAL
@@ -22,7 +22,8 @@
 //#define OCTOX8
 //#define OCTOFLATP
 //#define OCTOFLATX
-//#define FLYING_WING //experimental
+//#define FLYING_WING
+//#define VTAIL4
 
 #define YAW_DIRECTION 1 // if you want to reverse the yaw correction direction
 //#define YAW_DIRECTION -1
@@ -34,12 +35,18 @@
 //#define INTERNAL_I2C_PULLUPS
 
 
-//****** advanced users settings   *************
+//****** advanced users settings   ****************************************
+/* ===================================================================== */
+
 /* I2C DFRobot LED RING communication */
 //#define LED_RING
 
 /* This option should be uncommented if ACC Z is accurate enough when motors are running*/
+/* should now be ok with BMA020 and BMA180 ACC */
 #define TRUSTED_ACCZ
+
+/* This will activate the ACC-Inflight calibration if unchecked */  
+//#define InflightAccCalibration
 
 /* PIN A0 and A1 instead of PIN D5 & D6 for 6 motors config and promini config
    This mod allow the use of a standard receiver on a pro mini
@@ -53,20 +60,26 @@
 //#define RCAUXPIN8
 //#define RCAUXPIN12
 
-/* This option is here if you want to use the old level code from the verison 1.7
-   It's just to have some feedback. This will be removed in the future */
-//#define STAB_OLD_17
-
-/* GPS
+/* GPS using a SERIAL port
    only available on MEGA boards (this might be possible on 328 based boards in the future)
    if enabled, define here the Arduino Serial port number and the UART speed
    note: only the RX PIN is used, the GPS is not configured by multiwii
    the GPS must be configured to output NMEA sentences (which is generally the default conf for most GPS devices)
-*/
-//#define GPS
+   uncomment the first line to select the GPS serial port of the arduino */
 //#define GPS_SERIAL 2 // should be 2 for flyduino v2. It's the serial port number on arduino MEGA
-//#define GPS_BAUD   115200
-//#define GPS_BAUD   9600
+#define GPS_BAUD   115200
+
+/* I2C GPS device made with an independant arduino + GPS device
+   including some navigation functions
+   contribution from EOSBandi
+   http://code.google.com/p/i2c-gps-nav/ */
+//#define I2C_GPS
+
+/* GPS data readed from Misio-OSD  ( EXPERIMENTAL )
+   If we have Misio-OSD with GPS module connected to OSD we can use this GPS for navigation purpose. 
+   Working with OSD firmware v0.66 or newer.
+   contribution from Mis */
+//#define GPS_FROM_OSD
 
 /* Pseudo-derivative conrtroller for level mode (experimental)
    Additional information: http://www.multiwii.com/forum/viewtopic.php?f=8&t=503 */
@@ -74,10 +87,21 @@
 
 /* introduce a deadband around the stick center
    Must be greater than zero, comment if you dont want a deadband on roll, pitch and yaw */
-#define DEADBAND 5
+//#define DEADBAND 10
 
-/* deadband around throttle setpoint in BARO mode  */
-#define ALT_HOLD_DEADBAND 50
+
+/* interleaving delay in micro seconds between 2 readings WMP/NK in a WMP+NK config
+   if the ACC calibration time is very long (20 or 30s), try to increase this delay up to 4000
+   it is relevent only for a conf with NK */
+#define INTERLEAVING_DELAY 3000
+
+/* when there is an error on I2C bus, we neutralize the values during a short time. expressed in microseconds
+   it is relevent only for a conf with at least a WMP */
+#define NEUTRALIZE_DELAY 100000
+
+/********************************************************************/
+/****           boards and sensor definitions                    ****/
+/********************************************************************/
 
 /* if you use a specific sensor board:
    please submit any correction to this list.
@@ -89,7 +113,9 @@
 //#define FREEIMUv03      // FreeIMU v0.3 and v0.3.1
 //#define FREEIMUv035     // FreeIMU v0.3.5 no baro
 //#define FREEIMUv035_MS  // FreeIMU v0.3.5_MS                                                <- confirmed by Alex
-#define FREEIMUv035_BMP // FreeIMU v0.3.5_BMP
+//#define FREEIMUv035_BMP // FreeIMU v0.3.5_BMP
+//#define FREEIMUv04      // FreeIMU v0.4 with MPU6050, HMC5883L, MS561101BA                  <- confirmed by Alex
+//#define FREEIMUv043     // same as FREEIMUv04 with final MPU6050 (with the right ACC scale)
 //#define PIPO            // 9DOF board from erazz
 //#define QUADRINO        // full FC board 9DOF+baro board from witespy  with BMP085 baro     <- confirmed by Alex
 //#define QUADRINO_ZOOM   // full FC board 9DOF+baro board from witespy  second edition       <- confirmed by Alex
@@ -100,17 +126,24 @@
 //#define SIRIUS          // Sirius Navigator IMU                                             <- confirmed by Alex
 //#define SIRIUS600       // Sirius Navigator IMU  using the WMP for the gyro
 //#define MINIWII         // Jussi's MiniWii Flight Controller
-//#define CITRUSv1_0      // CITRUSv1 from qcrc.ca
-//#define DROTEK_IMU10DOF
-
+//#define CITRUSv2_1      // CITRUS from qcrc.ca
+//#define CHERRY6DOFv1_0
+//#define DROTEK_10DOF    // Drotek 10DOF with ITG3200, BMA180, HMC5883, BMP085, w or w/o LLC
+//#define DROTEK_10DOF_MS // Drotek 10DOF with ITG3200, BMA180, HMC5883, MS5611, LLC
+//#define DROTEK_6DOFv2   // Drotek 6DOF v2
+//#define DROTEK_6DOF_MPU // Drotek 6DOF with MPU6050
+//#define MONGOOSE1_0     // mongoose 1.0    http://www.fuzzydrone.org/
+//#define CRIUS_LITE      // Crius MultiWii Lite
+#define CRIUS_SE        // Crius MultiWii SE
 
 //if you use independent sensors
-//leave it commented it you already checked a specific board above
+//leave it commented if you already checked a specific board above
 /* I2C gyroscope */
 //#define ITG3200
 //#define L3G4200D
 
 /* I2C accelerometer */
+//#define MMA745
 //#define ADXL345
 //#define BMA020
 //#define BMA180
@@ -126,6 +159,7 @@
 //#define HMC5843
 //#define HMC5883
 //#define AK8975
+//#define MAG3110
 
 /* ADC accelerometer */ // for 5DOF from sparkfun, uses analog PIN A1/A2/A3
 //#define ADCACC
@@ -142,6 +176,64 @@
 //#define ITG3200_LPF_20HZ
 //#define ITG3200_LPF_10HZ      // Use this only in extreme cases, rather change motors and/or props
 
+/* MPU6050 Low pass filter setting. In case you cannot eliminate all vibrations to the Gyro, you can try
+   to decrease the LPF frequency, only one step per try. As soon as twitching gone, stick with that setting.
+   It will not help on feedback wobbles, so change only when copter is randomly twiching and all dampening and
+   balancing options ran out. Uncomment only one option!
+   IMPORTANT! Change low pass filter setting changes PID behaviour, so retune your PID's after changing LPF.*/
+//#define MPU6050_LPF_256HZ     // This is the default setting, no need to uncomment, just for reference
+//#define MPU6050_LPF_188HZ
+//#define MPU6050_LPF_98HZ
+//#define MPU6050_LPF_42HZ
+//#define MPU6050_LPF_20HZ
+//#define MPU6050_LPF_10HZ      // Use this only in extreme cases, rather change motors and/or props
+
+/* GYRO_SMOOTHING. In case you cannot reduce vibrations _and_ _after_ you have tried the low pass filter options, you
+   may try this gyro smoothing via averaging. Not suitable for multicopters!
+   Good results for helicopter, airplanes and flying wings (foamies) with lots of vibrations.*/
+//#define GYRO_SMOOTHING {20, 20, 3}    // separate averaging ranges for roll, pitch, yaw
+
+// Moving Average Gyros by Magnetron1 (Michele Ardito) ########## beta
+//#define MMGYRO                         // Active Moving Average Function for Gyros
+//#define MMGYROVECTORLENGHT 10          // Lenght of Moving Average Vector
+// Moving Average ServoGimbal Signal Output
+//#define MMSERVOGIMBAL                  // Active Output Moving Average Function for Servos Gimbal
+//#define MMSERVOGIMBALVECTORLENGHT 32   // Lenght of Moving Average Vector
+
+/*--------------------------------------------------------------------*/
+/* Settings for ProMicro, Leonardo and other Atmega32u4 Boards (BETA) */
+  // activate this for a better pinlayout if all pins can be used => not possible on ProMicro!
+  //#define A32U4ALLPINS
+
+  // activate all 6 hardware PWM outputs Motor 5 = D11 and 6 = D13. => not possible on ProMicro! (untested!) 
+  // if activated: 
+  // Motor 1-6 = 10-bit hardware PWM
+  // Motor 7-8 = 8-bit Software PWM
+  // Servos    = 8-bit Software PWM
+  // if deactivated:
+  // Motor 1-4 = 10-bit hardware PWM
+  // Motor 5-8 = 10-bit Software PWM
+  // Servos    = 10-bit Software PWM
+  //#define HWPWM6
+
+  // aux2 pin on pin RXO 
+  //#define RCAUX2PINRXO
+
+  // aux2 pin on pin D17 (RXLED)
+  //#define RCAUX2PIND17
+
+  // this moves the Buzzer pin from TXO to D8 for use with ppm sum or spectrum sat. RX (not needed if A32U4ALLPINS is active)
+  //#define D8BUZZER
+
+  // Inverted status LED for Promicro ver 10.
+  //#define PROMICRO10
+/* end of Settings for ProMicro, Leonardo and other Atmega32u4 Boards */
+/*--------------------------------------------------------------------*/
+
+/********************************************************************/
+/****           special receiver types                           ****/
+/********************************************************************/
+
 /* The following lines apply only for specific receiver with only one PPM sum signal, on digital PIN 2
    IF YOUR RECEIVER IS NOT CONCERNED, DON'T UNCOMMENT ANYTHING. Note this is mandatory for a Y6 setup on a promini
    Select the right line depending on your radio brand. Feel free to modify the order in your PPM order is different */
@@ -157,7 +249,7 @@
      There is no 3.3V source on a pro mini; you can either use a different 3V source, or attach orange to 5V with a 3V regulator in-line (such as http://search.digikey.com/scripts/DkSearch/dksus.dll?Detail&name=MCP1700-3002E/TO-ND)
      If you use an inline-regulator, a standard 3-pin servo connector can connect to ground, +5V, and RX0; solder the correct wires (and the 3V regulator!) to a Spektrum baseRX-to-Sat cable that has been cut in half. 
      NOTE: Because there is only one serial port on the Pro Mini, using a Spektrum Satellite implies you CANNOT use the PC based configuration tool. Further, you cannot use on-aircraft serial LCD as the baud rates are incompatible. You can configure by one of two methods:
-       1) Coming soon: Use an on-aircraft Eagle Tree LCD for setting gains, reading sensors, etc. 
+       1) Use an on-aircraft i2c LCD (such as Eagle Tree or LCD03) for setting gains, reading sensors, etc. 
        2) Available now: Comment out the Spektrum definition, upload, plug in PC, configure; uncomment the Spektrum definition, upload, plug in RX, and fly.  Repeat as required to configure. 
    (Contribution by Danal) */
 //#define SPEKTRUM 1024
@@ -191,39 +283,6 @@
   As with the SPEKTRUM option, is not possible to use the configuration tool on a mini or promini. */
 //#define BTSERIAL
 
-/* The following lines apply only for a pitch/roll tilt stabilization system
-   On promini board, it is not compatible with config with 6 motors or more
-   Uncomment the first line to activate it */
-#define SERVO_TILT
-#define TILT_PITCH_MIN    1100    //servo travel min, don't set it below 1020
-#define TILT_PITCH_MAX    1900    //servo travel max, max value=2000
-#define TILT_PITCH_MIDDLE 1500    //servo neutral value
-#define TILT_PITCH_PROP   20      //servo proportional (tied to angle) ; can be negative to invert movement
-#define TILT_ROLL_MIN     1120
-#define TILT_ROLL_MAX     1900
-#define TILT_ROLL_MIDDLE  1500
-#define TILT_ROLL_PROP    -20
-
-/* interleaving delay in micro seconds between 2 readings WMP/NK in a WMP+NK config
-   if the ACC calibration time is very long (20 or 30s), try to increase this delay up to 4000
-   it is relevent only for a conf with NK */
-#define INTERLEAVING_DELAY 3000
-
-/* for V BAT monitoring
-   after the resistor divisor we should get [0V;5V]->[0;1023] on analog V_BATPIN
-   with R1=33k and R2=51k
-   vbat = [0;1023]*16/VBATSCALE */
-#define VBAT              // comment this line to suppress the vbat code
-#define VBATSCALE     103 // change this value if readed Battery voltage is different than real voltage
-#define VBATLEVEL1_3S 107 // 10,7V
-#define VBATLEVEL2_3S 103 // 10,3V
-#define VBATLEVEL3_3S 99  // 9.9V
-#define NO_VBAT       20 // Avoid beeping without any battery
-
-/* when there is an error on I2C bus, we neutralize the values during a short time. expressed in microseconds
-   it is relevent only for a conf with at least a WMP */
-#define NEUTRALIZE_DELAY 100000
-
 /* this is the value for the ESCs when they are not armed
    in some cases, this value must be lowered down to 900 for some specific ESCs */
 #define MINCOMMAND 1000
@@ -235,16 +294,45 @@
 /* This is the speed of the serial interface. 115200 kbit/s is the best option for a USB connection.*/
 #define SERIAL_COM_SPEED 115200
 
+/********************************************************************/
+/****           LCD - display and telemetry settings             ****/
+/********************************************************************/
 /* In order to save space, it's possibile to desactivate the LCD configuration functions
    comment this line only if you don't plan to used a LCD */
 //#define LCD_CONF
-/* Use this to trigger LCD configuration without a TX */
-//#define LCD_CONF_DEBUG
+/* to include setting the aux switches for AUX1 and AUX2 via LCD */
+//#define LCD_CONF_AUX_12
+/* to include setting the aux switches for AUX1, AUX2, AUX3 and AUX4 via LCD */
+//#define LCD_CONF_AUX_1234
+
 
 /* choice of LCD attached for configuration and telemetry, see notes below */
-#define LCD_TYPE SERIAL3W    // Alex' initial variant with 3 wires, using rx-pin for transmission @9600 baud fixed
-//#define LCD_TYPE TEXTSTAR    // Cat's Whisker TEXTSTAR Module CW-LCD-02 (Which has 4 input keys for selecting menus)
-//#define LCD_TYPE ETPP        // Eagle Tree Power Panel LCD, which is i2c (not serial)
+#define LCD_SERIAL3W    // Alex' initial variant with 3 wires, using rx-pin for transmission @9600 baud fixed
+/* serial (wired or wireless via BT etc.) */
+//#define LCD_TEXTSTAR    // Cat's Whisker LCD_TEXTSTAR Module CW-LCD-02 (Which has 4 input keys for selecting menus)
+//#define LCD_VT100               // vt100 compatible terminal emulation (blueterm, putty, etc.)
+/* i2c devices */
+//#define LCD_ETPP        // Eagle Tree Power Panel LCD, which is i2c (not serial)
+//#define LCD_LCD03       // LCD03, which is i2c
+
+/* style of display - autodetected by LCD_ setting - only activate to overwrite defaults */
+//#define DISPLAY_2LINES
+//#define DISPLAY_MULTILINE
+
+/* keys to navigate the LCD menu (preset to LCD_TEXTSTAR key-depress codes)*/
+#define LCD_MENU_PREV 'a'
+#define LCD_MENU_NEXT 'c'
+#define LCD_VALUE_UP 'd'
+#define LCD_VALUE_DOWN 'b'
+
+/* To use an LCD03 for configuration:
+ http://www.robot-electronics.co.uk/htm/Lcd03tech.htm
+ Remove the jumper on its back to set i2c control.
+ VCC to +5V VCC (pin1 from top)
+ SDA - Pin A4 Mini Pro - Pin 20 Mega (pin2 from top)
+ SCL - Pin A5 Mini Pro - Pin 21 Mega (pin3 from top)
+ GND to Ground (pin4 from top)
+ (by Th0rsten) */
 
 /* To use an Eagle Tree Power Panel LCD for configuration:
  White wire  to Ground
@@ -253,18 +341,56 @@
  Brown wire  to SCL - Pin A5 Mini Pro - Pin 21 Mega 
  (Contribution by Danal) */
 
-/* Cat's whisker TEXTSTAR LCD
+/* Cat's whisker LCD_TEXTSTAR LCD
    Pleae note this display needs a full 4 wire connection to (+5V, Gnd, RXD, TXD )
    Configure display as follows: 115K baud, and TTL levels for RXD and TXD, terminal mode
-   NO rx / tx line reconfiguration, use natural pins */
+   NO rx / tx line reconfiguration, use natural pins.
+   The four buttons sending 'A', 'B', 'C', 'D' are supported for configuration navigation and request of telemetry pages 1-4 */
 
+/********************************************************************/
+/****           telemetry                                      ****/
+/********************************************************************/
 
+/* to monitor system values (battery level, loop time etc. with LCD enable this */
+/* note: for now you must send single characters to request  different pages */
+/* Buttons toggle request for page on/off */
+/* The active page on the LCD does get updated automatically */
+/* Easy to use with Terminal application or display like LCD - if available uses the 4 preconfigured buttons  to send 'A', 'B', 'C', 'D' */
+//#define LCD_TELEMETRY
+/* to enable automatic hopping between a choice of telemetry pages uncomment this. */
+/* This may be useful if your LCD has no buttons or the sending is broken */
+/* hopping is activated and deactivated in unarmed mode with throttle=low & roll=left & pitch=forward */
+/* set it to the sequence of telemetry pages you want to see */
+/* 2 line displays support pages 1-9 */
+/* multiline displays support pages 1-4 */
+//#define LCD_TELEMETRY_AUTO "123452679" // pages 1 to 7 in ascending order
+//#define LCD_TELEMETRY_AUTO  "212232425262729" // strong emphasis on page 2
+
+/* on telemetry page B (2) it gives a bar graph which shows how much voltage battery has left. Range from 0 to 12 Volt is not very informative */
+/* so we try do define a meaningful part. For a 3S battery we define full=12,6V and calculate how much it is above first warning level */
+/* Example: 12.6V - VBATLEVEL1_3S  (for me = 126 - 102 = 24) */
+#define VBATREF 24
+/********************************************************************/
+/****           motor, servo and other presets                   ****/
+/********************************************************************/
 /* motors will not spin when the throttle command is in low position
    this is an alternative method to stop immediately the motors */
 //#define MOTOR_STOP
 
 /* some radios have not a neutral point centered on 1500. can be changed here */
 #define MIDRC 1500
+
+/* The following lines apply only for a pitch/roll tilt stabilization system
+   Uncomment the first line to activate it */
+//#define SERVO_TILT
+#define TILT_PITCH_MIN    1100    //servo travel min, don't set it below 1020
+#define TILT_PITCH_MAX    1900    //servo travel max, max value=2000
+#define TILT_PITCH_MIDDLE 1500    //servo neutral value
+#define TILT_PITCH_PROP   20      //servo proportional (tied to angle) ; can be negative to invert movement
+#define TILT_ROLL_MIN     1120
+#define TILT_ROLL_MAX     1900
+#define TILT_ROLL_MIDDLE  1500
+#define TILT_ROLL_PROP    -20
 
 /* experimental
    camera trigger function : activated via Rc Options in the GUI, servo output=A2 on promini */
@@ -293,6 +419,10 @@
 #define WING_RIGHT_MIN 1020 // limit servo travel range must be inside [1020;2000]
 #define WING_RIGHT_MAX 2000 // limit servo travel range must be inside [1020;2000]
 
+/********************************************************************/
+/****           powermeter                                       ****/
+/********************************************************************/
+
 /* enable monitoring of the power consumption from battery (think of mAh) */
 /* allows to set alarm value in GUI or via LCD */
 /* Two options: */
@@ -320,8 +450,8 @@
 /*      4. configure, compile, upload, set alarm value in GUI or LCD */
 /*      3. enjoy true readings of mAh consumed */
 /* set POWERMETER to "soft" (1) or "hard" (2) depending on sensor you want to utilize */
-//#define POWERMETER 1
-//#define POWERMETER 2
+//#define POWERMETER_SOFT
+//#define POWERMETER_HARD
 /* the sum of all powermeters ranges from [0:60000 e4] theoretically. */
 /* the alarm level from eeprom is out of [0:255], so we multipy alarm level with PLEVELSCALE and with 1e4 before comparing */
 /* PLEVELSCALE is the step size you can use to set alarm */
@@ -339,33 +469,41 @@
 #define PINT2mA 13 // for telemtry display: one integer step on arduino analog translates to mA (example 4.9 / 37 * 100
 
 
+/********************************************************************/
+/****           diagnostics                                      ****/
+/********************************************************************/
 
-/* to monitor system values (battery level, loop time etc. with LCD enable this */
-/* note: for now you must send single characters 'A', 'B', 'C', 'D' to request 4 different pages */
-/* Buttons toggle request for page on/off */
-/* The active page on the LCD does get updated automatically */
-/* Easy to use with Terminal application or Textstar LCD - the 4 buttons are preconfigured to send 'A', 'B', 'C', 'D' */
-/* The value represents the refresh interval in cpu time (micro seconds) */
-//#define LCD_TELEMETRY 100011
-/* to enable automatic hopping between 4 telemetry pages uncomment this. */
-/* This may be useful if your LCD has no buttons or the sending is broken */
-/* hopping is activated and deactivated in unarmed mode with throttle=low & roll=left & pitch=forward */
-/* The value represents the hopping interval in cpu time (micro seconds) */
-//#define LCD_TELEMETRY_AUTO 2000123
-/* on telemetry page B it gives a bar graph which shows how much voltage battery has left. Range from 0 to 12 Volt is not very informative */
-/* so we try do define a meaningful part. For a 3S battery we define full=12,6V and calculate how much it is above first warning level */
-/* Example: 12.6V - VBATLEVEL1_3S  (for me = 126 - 102 = 24) */
-#define VBATREF 24 
-/* Use this to trigger telemetry without a TX */
-//#define LCD_TELEMETRY_DEBUG
+/* for V BAT monitoring
+   after the resistor divisor we should get [0V;5V]->[0;1023] on analog V_BATPIN
+   with R1=33k and R2=51k
+   vbat = [0;1023]*16/VBATSCALE */
+#define VBAT              // comment this line to suppress the vbat code
+#define VBATSCALE     103 // change this value if readed Battery voltage is different than real voltage
+#define VBATLEVEL1_3S 107 // 10,7V
+#define VBATLEVEL2_3S 103 // 10,3V
+#define VBATLEVEL3_3S 99  // 9.9V
+#define NO_VBAT       20 // Avoid beeping without any battery
 
 /* to log values like max loop time and others to come */
 /* logging values are visible via LCD config */
-/* set to 2, if you want powerconsumption on a per motor basis (this uses the big array and is a memory hog, if POWERMETER <> 1) */
-#define LOG_VALUES 1
- 
+/* set to 2, if you want powerconsumption on a per motor basis (this uses the big array and is a memory hog, if POWERMETER <> PM_SOFT) */
+//#define LOG_VALUES 1
 
-//****** end of advanced users settings *************
+/* to add debugging code */
+/* not needed and not recommended for normal operation */
+/* will add extra code that may slow down the main loop or make copter non-flyable */
+//#define DEBUG
+
+/* Use this to trigger LCD configuration without a TX - only for debugging - do NOT fly with this activated */
+//#define LCD_CONF_DEBUG
+
+/* Use this to trigger telemetry without a TX - only for debugging - do NOT fly with this activated */
+//#define LCD_TELEMETRY_DEBUG  //This form rolls between all screens, LCD_TELEMETRY_AUTO must also be defined.
+//#define LCD_TELEMETRY_DEBUG 6  //This form stays on the screen specified.
+
+
+//****** end of advanced users settings ***********************************
+/* ===================================================================== */
 
 //if you want to change to orientation of individual sensor
 //#define ACC_ORIENTATION(X, Y, Z)  {accADC[ROLL]  =  Y; accADC[PITCH]  = -X; accADC[YAW]  = Z;}
@@ -376,12 +514,10 @@
 /* time base is main loop cycle time - a value of 6 means to trigger the action every 6th run through the main loop */
 /* example: with cycle time of approx 3ms, do action every 6*3ms=18ms */
 /* value must be [1; 65535] */
-#define LCD_TELEMETRY_FREQ 43       // to send telemetry data over serial 43 <=> 120ms <=> 8Hz
+#define LCD_TELEMETRY_FREQ 23       // to send telemetry data over serial 23 <=> 60ms <=> 16Hz (only sending interlaced, so 8Hz update rate)
 #define LCD_TELEMETRY_AUTO_FREQ 667 // to step to next telemetry page 667 <=> 2s
-#define PSENSORFREQ 6               //  to read hardware powermeter sensor 6 <=> 18ms
-
-
-
+#define PSENSORFREQ 6               // to read hardware powermeter sensor 6 <=> 18ms
+#define VBATFREQ PSENSORFREQ        // to read battery voltage - keep equal to PSENSORFREQ unless you know what you are doing
 
 
 /* You can enable throttle expo curve near hover point, affected by 'EXPO' AND 'RC RATE' setting in GUI */
@@ -389,53 +525,82 @@
 #define THROTTLE_EXPO
 /* Throttle value just before copter start flying (expo zero point will be here) */
 /* Should be measured in GUI with full copter load. */
-#define THROTTLE_HOVER 1400
-/* You can shift hover point to the begining of the throttle range to use more of remaining range to fly */
+#define THROTTLE_HOVER 1500
+/* You can shift hover point to the middle of the throttle range */
 /* SHIFT_HOVER=THROTTLE_HOVER - no shift */
-#define SHIFT_HOVER 1400
+#define SHIFT_HOVER 1500
 
 #define MINCHECK 1150
 #define MAXCHECK 1850
+
+
+
+/************ alexmos: Alt Hold configuration **********/
+/* Deadband around throttle setpoint in Alt Hold mode  */
+#define ALT_HOLD_DEADBAND 50
+/* Output some vars to GUI (for PID tuning) 
+* TODO: describe vars and tuning algorithm */
+#define ALT_DEBUG
+/* Deadband for baro: Don't apply altitude correction if altitude within this limit, cm */
+#define BARO_DEADBAND 50
+/* Low-pass filter factor. (4..6 better noise filtering, 0..4 more robust response) */
+#define ALT_LPF_FACTOR 4
 
 
 /* Use ultrasonic sensor for ALT HOLD. (see Sonar.pde for details) */
 #define SONAR
 #define SONAR_PING A2 // PIN that trigger measure
 #define SONAR_READ 12 // PIN to read response pulse, 12 or 8
-//#define SONAR_DEBUG // output some data to GUI (replacing MAG and debug variables)
-/* Maximum measuring distance, cm. Set it 10% lower than specified in datasheet */
+/* Maximum measuring distance, cm. Set it 1 meter lower than specified in datasheet */
+/* Don't set above 1000! */
 #define SONAR_MAX_DISTANCE 300
-/* Maximum number of errors to switch to baro (integer 1..20) */
-#define SONAR_ERROR_MAX 10
 /* In sonar mode, increase PID strength by this value (integer > 0) */
 /* Comment to disable gain */
 #define SONAR_BARO_PID_GAIN 1
+//#define SONAR_DEBUG // output some data to GUI (replacing MAG and debug variables)
 
-/* Output some vars to GUI (for PID tuning) 
-* TODO: describe vars and tuning algorithm */
-//#define ALT_DEBUG
+
+
 
 /* Correct throttle according to Z-axis inclination */
 /* Default is 100. Don't set above 200 */
 /* Set to 0 to disable this correction */
-#define THROTTLE_ANGLE_CORRECTION 150
+#define THROTTLE_ANGLE_CORRECTION 200
 /* Correct throttle to compensate aerodynamic lifting force and lateral wind (positive or negative, depending on speed and inclination) */
 /* Default is 200. */ 
 #define THROTTLE_WIND_CORRECTION 250
 
 
-/* alexmos: Optical Flow sensor for position hold. 
-VEL PID (P, I only) are used to control position. Works only in LEVEL mode. 
+
+/***** alexmos: Optical Flow sensor for position hold ********/
+/* Activated by 'GPSHOLD' checkbox (LEVEL mode must be enabled)
+	VEL(P, I) in GUI are used to PID tuning.
 
 Sensors currently supported: 
-	ADNS-5050 
-	(if you implement other sensor, let me know) 
+	ADNS-5050
+		connect and define pins: OF_SCLK, OF_SDIO, OF_NCS
+
+	ADNS-3080 (not tested yet)
+		connect and define pins: OF_SCLK, OF_MISO, OF_MOSI, OF_NCS, OF_RESET (optional)
+
+	...	(if you implement other sensor, let me know)
+
+Due to software SPI,  you can use any of free Arduino pins
 */
-#define OPTFLOW ADNS_5050
-/* SPI pins for sensor connection (you can use any of free pins) */
+#define OPTFLOW 5050
 #define OF_SCLK PITCHPIN
 #define OF_SDIO YAWPIN
 #define OF_NCS  ROLLPIN
+
+/*
+#define OPTFLOW 3080
+#define OF_SCLK ??
+#define OF_MISO ??
+#define OF_MOSI ??
+#define OF_NCS  ??
+//#define OF_RESET ??
+*/
+
 /* Lense focal distance, mm (set it for your own lense) 
  (How to check: debug4 in GUI should not react on ROLL tilt, but react on ROLL slide) */
 #define OF_FOCAL_DIST 9
@@ -443,9 +608,14 @@ Sensors currently supported:
 #define OF_DEADBAND 15
 /* Rotate I-term with heading rotation. It will well compensate wind */
 #define OF_ROTATE_I
+/* Low-pass filter factor to prevent shaking. Possible values 1..8.  Default is 5. */
+#define OF_LPF_FACTOR 5
 /* Debug to GUI */
-#define OF_DEBUG
+//#define OF_DEBUG
 
-/**************************************/
-/****END OF CONFIGURABLE PARAMETERS****/
-/**************************************/
+
+
+/*************************************************************************************************/
+/****           END OF CONFIGURABLE PARAMETERS                                                ****/
+/*************************************************************************************************/
+

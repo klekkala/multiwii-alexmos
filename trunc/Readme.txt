@@ -4,6 +4,19 @@ after switching power to keep  ABSOLUTELY IMMOVABLE while calibrating gyroscope.
 Precise gyro = stable flight!
 
 
+New in r23:
+- Merged with official 2.0 and tested in flight
+
+- Optical Flow code restructured: now all code located in OpticalFlow.pde
+
+- Alt Hold:
+ - added low-pass filter for estimated altitude
+ - added deadband for baro (to skip throttle correction by baro inside +-BARO_DEADBAND)
+ - Sonar: transition from sonar to baro and sonar error handling improved. 
+   It gives better results in case of low-reflecting and non-uniform surface (grass, trees).
+
+ 
+
 New in r21:
 
 -Position hold updates:
