@@ -651,8 +651,9 @@ void loop () {
       } else {
         GPSModeHold = 0;
       }
-    // alexmos: use GPSHold checkbox for opticalFlow mode, bacause no special box in GUI
-    #elif defined(OPTFLOW)
+    #endif
+    // alexmos: using GPSHold checkbox for opticalFlow mode, because no special box in GUI
+    #if defined(OPTFLOW)
       if (rcOptions[BOXGPSHOLD]) {optflowMode = 1;}
       else optflowMode = 0;
     #endif
