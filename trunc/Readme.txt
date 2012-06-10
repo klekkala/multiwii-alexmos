@@ -4,6 +4,11 @@ after switching power to keep  ABSOLUTELY IMMOVABLE while calibrating gyroscope.
 Precise gyro = stable flight!
 
 
+New in r34:
+- Beep buzzer when TX is off. It's replacement for Beeper Mode to help find lost quad, without separate switch (just turn you RX off).
+  (FAILSAFE should be enabled in config.h)
+
+
 New in r23:
 - Merged with official 2.0 and tested in flight
 

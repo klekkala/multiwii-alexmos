@@ -54,7 +54,9 @@
   #define AUX3PIN                    1 // unused 
   #define AUX4PIN                    3 // unused 
   #define ISR_UART                   ISR(USART_UDRE_vect)
-  #define V_BATPIN                   A3    // Analog PIN 3
+  #ifndef V_BATPIN
+  	#define V_BATPIN                   A3    // Analog PIN 3
+  #endif
   #define PSENSORPIN                 A2    // Analog PIN 2
   
   #define SOFT_PWM_1_PIN_HIGH        PORTD |= 1<<5;
@@ -436,8 +438,9 @@
 #if defined(QUADRINO_ZOOM)
   #define ITG3200
   #define BMA180
-  #define BMP085  // note, can be also #define MS561101BA  on some versions
-  //#define MS561101BA
+  //#define BMP085  // note, can be also #define MS561101BA  on some versions
+  #define MS561101BA
+  #define MS561101BA_ADDRESS 0x76 //CBR=1 0xEC I2C address when pin CSB is connected to HIGH (VCC)
   #define HMC5883
   #define ACC_ORIENTATION(X, Y, Z)  {accADC[ROLL]  = -X; accADC[PITCH]  = -Y; accADC[YAW]  =  Z;}
   #define GYRO_ORIENTATION(X, Y, Z) {gyroADC[ROLL] =  Y; gyroADC[PITCH] = -X; gyroADC[YAW] = -Z;}

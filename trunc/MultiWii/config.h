@@ -118,7 +118,7 @@
 //#define FREEIMUv043     // same as FREEIMUv04 with final MPU6050 (with the right ACC scale)
 //#define PIPO            // 9DOF board from erazz
 //#define QUADRINO        // full FC board 9DOF+baro board from witespy  with BMP085 baro     <- confirmed by Alex
-//#define QUADRINO_ZOOM   // full FC board 9DOF+baro board from witespy  second edition       <- confirmed by Alex
+#define QUADRINO_ZOOM   // full FC board 9DOF+baro board from witespy  second edition       <- confirmed by Alex
 //#define ALLINONE        // full FC board or standalone 9DOF+baro board from CSG_EU
 //#define BMA180_ADDRESS 0x82
 //#define AEROQUADSHIELDv2
@@ -134,7 +134,7 @@
 //#define DROTEK_6DOF_MPU // Drotek 6DOF with MPU6050
 //#define MONGOOSE1_0     // mongoose 1.0    http://www.fuzzydrone.org/
 //#define CRIUS_LITE      // Crius MultiWii Lite
-#define CRIUS_SE        // Crius MultiWii SE
+//#define CRIUS_SE        // Crius MultiWii SE
 
 //if you use independent sensors
 //leave it commented if you already checked a specific board above
@@ -387,8 +387,8 @@
 #define TILT_PITCH_MAX    1900    //servo travel max, max value=2000
 #define TILT_PITCH_MIDDLE 1500    //servo neutral value
 #define TILT_PITCH_PROP   20      //servo proportional (tied to angle) ; can be negative to invert movement
-#define TILT_ROLL_MIN     1120
-#define TILT_ROLL_MAX     1900
+#define TILT_ROLL_MIN     1020
+#define TILT_ROLL_MAX     2000
 #define TILT_ROLL_MIDDLE  1500
 #define TILT_ROLL_PROP    -20
 
@@ -483,6 +483,7 @@
 #define VBATLEVEL2_3S 103 // 10,3V
 #define VBATLEVEL3_3S 99  // 9.9V
 #define NO_VBAT       20 // Avoid beeping without any battery
+#define V_BATPIN A6
 
 /* to log values like max loop time and others to come */
 /* logging values are visible via LCD config */
@@ -528,7 +529,7 @@
 #define THROTTLE_HOVER 1500
 /* You can shift hover point to the middle of the throttle range */
 /* SHIFT_HOVER=THROTTLE_HOVER - no shift */
-#define SHIFT_HOVER 1500
+#define SHIFT_HOVER THROTTLE_HOVER
 
 #define MINCHECK 1150
 #define MAXCHECK 1850
@@ -542,14 +543,15 @@
 * TODO: describe vars and tuning algorithm */
 #define ALT_DEBUG
 /* Deadband for baro: Don't apply altitude correction if altitude within this limit, cm */
-#define BARO_DEADBAND 50
+#define BARO_DEADBAND 30
 /* Low-pass filter factor. (4..6 better noise filtering, 0..4 more robust response) */
 #define ALT_LPF_FACTOR 4
-
+/* How much we trust ACC compared to baro (1..100) */
+#define ALT_TRUST_ACC 40
 
 /* Use ultrasonic sensor for ALT HOLD. (see Sonar.pde for details) */
 #define SONAR
-#define SONAR_PING A2 // PIN that trigger measure
+#define SONAR_PING 7 // PIN that trigger measure
 #define SONAR_READ 12 // PIN to read response pulse, 12 or 8
 /* Maximum measuring distance, cm. Set it 1 meter lower than specified in datasheet */
 /* Don't set above 1000! */
@@ -588,9 +590,10 @@ Sensors currently supported:
 Due to software SPI,  you can use any of free Arduino pins
 */
 #define OPTFLOW 5050
-#define OF_SCLK PITCHPIN
-#define OF_SDIO YAWPIN
-#define OF_NCS  ROLLPIN
+#define OF_SCLK PITCHPIN // yellow
+#define OF_SDIO YAWPIN  // green
+#define OF_NCS  ROLLPIN // orange
+
 
 /*
 #define OPTFLOW 3080
@@ -613,7 +616,8 @@ Due to software SPI,  you can use any of free Arduino pins
 /* Debug to GUI */
 //#define OF_DEBUG
 
-
+// output raw gyro data on camstab port
+//#define SERVO_TILT_GYRO
 
 /*************************************************************************************************/
 /****           END OF CONFIGURABLE PARAMETERS                                                ****/

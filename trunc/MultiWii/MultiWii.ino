@@ -313,7 +313,7 @@ void annexCode() { // this code is excetuted at each loop and won't interfere wi
     	for (uint8_t i=0;i<8;i++) vbatRaw += vbatRawArray[i];
     	vbat = vbatRaw / (VBATSCALE/2);                  // result is Vbatt in 0.1V steps
     }
-    if ( rcOptions[BOXBEEPERON] ){ // unconditional beeper on via AUXn switch 
+    if ( rcOptions[BOXBEEPERON] || failsafeCnt > (5*FAILSAVE_DELAY)){ // unconditional beeper on via AUXn switch + alexmos: beep in filesafe
        buzzerFreq = 7;
     } else  if ( ( (vbat>VBATLEVEL1_3S) 
     #if defined(POWERMETER)
@@ -783,6 +783,7 @@ void loop () {
 	    } 
     }
   #endif
+
 
   // alexmos: Gain throttle in case of inclination (only in stable mode)
   #if THROTTLE_ANGLE_CORRECTION > 0
