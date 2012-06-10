@@ -38,8 +38,8 @@
 #endif
 
 #if !defined(MS561101BA_ADDRESS) 
-  #define MS561101BA_ADDRESS 0xEE //CBR=0 0xEE I2C address when pin CSB is connected to LOW (GND)
-  //#define MS561101BA_ADDRESS 0xEC //CBR=1 0xEC I2C address when pin CSB is connected to HIGH (VCC)
+  #define MS561101BA_ADDRESS 0x77 //CBR=0 0xEE I2C address when pin CSB is connected to LOW (GND)
+  //#define MS561101BA_ADDRESS 0x76 //CBR=1 0xEC I2C address when pin CSB is connected to HIGH (VCC)
 #endif
 
 //ITG3200 and ITG3205 Gyro LPF setting
@@ -513,8 +513,6 @@ void Baro_update() {
 // ************************************************************************************************************
 // I2C Barometer MS561101BA
 // ************************************************************************************************************
-// first contribution from Fabio
-// modification from Alex (September 2011)
 //
 // specs are here: http://www.meas-spec.com/downloads/MS5611-01BA03.pdf
 // useful info on pages 7 -> 12
@@ -551,10 +549,10 @@ void i2c_MS561101BA_reset(){
 void i2c_MS561101BA_readCalibration(){
   union {uint16_t val; uint8_t raw[2]; } data;
   for(uint8_t i=0;i<6;i++) {
-    i2c_rep_start(MS561101BA_ADDRESS + 0);
+    i2c_rep_start(MS561101BA_ADDRESS<<1);
     i2c_write(0xA2+2*i);
     delay(10);
-    i2c_rep_start(MS561101BA_ADDRESS + 1);//I2C read direction => 1
+    i2c_rep_start((MS561101BA_ADDRESS<<1) | 1);//I2C read direction => 1
     delay(10);
     data.raw[1] = i2c_readAck();  // read a 16 bit register
     data.raw[0] = i2c_readNak();
@@ -571,23 +569,23 @@ void  Baro_init() {
 
 // read uncompensated temperature value: send command first
 void i2c_MS561101BA_UT_Start() {
-  i2c_rep_start(MS561101BA_ADDRESS+0);      // I2C write direction
+  i2c_rep_start(MS561101BA_ADDRESS<<1);      // I2C write direction
   i2c_write(MS561101BA_TEMPERATURE + OSR);  // register selection
   i2c_stop();
 }
 
 // read uncompensated pressure value: send command first
 void i2c_MS561101BA_UP_Start () {
-  i2c_rep_start(MS561101BA_ADDRESS+0);      // I2C write direction
+  i2c_rep_start(MS561101BA_ADDRESS<<1);      // I2C write direction
   i2c_write(MS561101BA_PRESSURE + OSR);     // register selection
   i2c_stop();
 }
 
 // read uncompensated pressure value: read result bytes
 void i2c_MS561101BA_UP_Read () {
-  i2c_rep_start(MS561101BA_ADDRESS + 0);
+  i2c_rep_start(MS561101BA_ADDRESS<<1);
   i2c_write(0);
-  i2c_rep_start(MS561101BA_ADDRESS + 1);
+  i2c_rep_start((MS561101BA_ADDRESS<<1) | 1);
   ms561101ba_ctx.up.raw[2] = i2c_readAck();
   ms561101ba_ctx.up.raw[1] = i2c_readAck();
   ms561101ba_ctx.up.raw[0] = i2c_readNak();
@@ -595,9 +593,9 @@ void i2c_MS561101BA_UP_Read () {
 
 // read uncompensated temperature value: read result bytes
 void i2c_MS561101BA_UT_Read() {
-  i2c_rep_start(MS561101BA_ADDRESS + 0);
+  i2c_rep_start(MS561101BA_ADDRESS<<1);
   i2c_write(0);
-  i2c_rep_start(MS561101BA_ADDRESS + 1);
+  i2c_rep_start((MS561101BA_ADDRESS<<1) | 1);
   ms561101ba_ctx.ut.raw[2] = i2c_readAck();
   ms561101ba_ctx.ut.raw[1] = i2c_readAck();
   ms561101ba_ctx.ut.raw[0] = i2c_readNak();
