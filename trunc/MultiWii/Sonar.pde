@@ -54,8 +54,8 @@ volatile uint16_t sonarData = 0; // measured time, us
 void initSonar() {
   pinMode(SONAR_PING, OUTPUT); 
   pinMode(SONAR_READ, INPUT); 
-  digitalWrite(SONAR_READ, LOW);
-  //digitalWrite(SONAR_READ, HIGH); // enable pullups
+  //digitalWrite(SONAR_READ, LOW);
+  digitalWrite(SONAR_READ, HIGH); // enable pullups
   
   #if defined(PROMINI)
 	  PCICR |= (1<<0) ; // PCINT activated for PINS [D8-D13] on port B
@@ -135,7 +135,8 @@ inline void sonarUpdate() {
 			  if(dist < limit) {
 			  	decError(0);
 			  } else { 
-			  	decError(min((dist - limit) * SONAR_ERROR_MAX / 100, SONAR_ERROR_MAX));  // 16 bit ok: 1000max * 50max = 50000max
+			  	int16_t tmp = (dist - limit) * SONAR_ERROR_MAX / 100; 
+			  	decError(min(tmp, SONAR_ERROR_MAX));  // 16 bit ok: 1000max * 50max = 50000max
 			  }
 		  } else {
 		  	incError();
@@ -156,7 +157,7 @@ inline void sonarUpdate() {
 
 	#ifdef SONAR_DEBUG
 		debug1 = SonarAlt;
-		debug3 = SonarErros;
+		debug3 = SonarErrors;
 	#endif
 }
 	  

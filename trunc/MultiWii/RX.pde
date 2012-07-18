@@ -110,10 +110,10 @@ void configureReceiver() {
       pin = PINK;             // PINK indicates the state of each PIN for the arduino port dealing with [A8-A15] digital pins (8 bits variable)
     #endif
     mask = pin ^ PCintLast;   // doing a ^ between the current interruption and the last one indicates wich pin changed
+    cTime = micros();         // micros() return a uint32_t, but it is not usefull to keep the whole bits => we keep only 16 bits
     sei();                    // re enable other interrupts at this point, the rest of this interrupt is not so time critical and can be interrupted safely
     PCintLast = pin;          // we memorize the current state of all PINs [D0-D7]
   
-    cTime = micros();         // micros() return a uint32_t, but it is not usefull to keep the whole bits => we keep only 16 bits
     #if defined(PROMICRO)
       if (mask & 1<<2)        //indicates the bit 1 of the arduino port [B1-B4], that is to say digital pin 15, if 1 => this pin has just changed
         if (!(pin & 1<<2)) {     //indicates if the bit 1 of the arduino port [B1-B4] is not at a high state (so that we match here only descending PPM pulse)

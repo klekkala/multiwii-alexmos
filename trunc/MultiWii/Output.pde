@@ -725,12 +725,17 @@ void mixTable() {
     S_PITCH = TILT_PITCH_MIDDLE + rcData[AUX3]-1500;
     S_ROLL  = TILT_ROLL_MIDDLE  + rcData[AUX4]-1500;
     if (rcOptions[BOXCAMSTAB]) {
-	    // alexmos: output raw gyro data
-	    #ifdef SERVO_TILT_GYRO
-	    	S_PITCH = 1500 + gyroData[PITCH];
-	    	S_ROLL = 1500 + gyroData[ROLL];
+	    // alexmos: add gyro data
+	    #ifdef SERVO_TILT_PITCH_GYRO
+	    	S_PITCH+= (TILT_PITCH_PROP * angle[PITCH] + (TILT_PITCH_PROP > 0 ? gyroData[PITCH] : -gyroData[PITCH]) * SERVO_TILT_PITCH_GYRO)/16;
+	    	//S_PITCH+= (TILT_PITCH_PROP * angle[PITCH] + (TILT_PITCH_PROP > 0 ? -deltaGyro[PITCH] : deltaGyro[PITCH]) * SERVO_TILT_PITCH_GYRO)/16;
 	    #else
 	      S_PITCH += TILT_PITCH_PROP * angle[PITCH] /16 ;
+	    #endif
+	    #ifdef SERVO_TILT_ROLL_GYRO
+	    	S_ROLL+= (TILT_ROLL_PROP  * angle[ROLL]  + (TILT_ROLL_PROP > 0 ? gyroData[ROLL] : -gyroData[ROLL]) * SERVO_TILT_ROLL_GYRO)/16;
+	    	//S_ROLL+= (TILT_ROLL_PROP  * angle[ROLL]  + (TILT_ROLL_PROP > 0 ? -deltaGyro[ROLL] : deltaGyro[ROLL]) * SERVO_TILT_ROLL_GYRO)/16;
+	    #else
 	      S_ROLL  += TILT_ROLL_PROP  * angle[ROLL]  /16 ;
 	    #endif
     }

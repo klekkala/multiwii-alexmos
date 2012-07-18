@@ -96,7 +96,7 @@ void computeIMU () {
 /* Increasing this value would reduce ACC noise (visible in GUI), but would increase ACC lag time*/
 /* Comment this if  you do not want filter at all.*/
 /* Default WMC value: 8*/
-#define ACC_LPF_FACTOR 4
+#define ACC_LPF_FACTOR 6
 
 /* Set the Low Pass Filter factor for Magnetometer */
 /* Increasing this value would reduce Magnetometer noise (not visible in GUI), but would increase Magnetometer lag time*/
@@ -343,7 +343,9 @@ void getEstimatedAltitude(){
 		  	alt = 0;
 		  #endif
 	  	accVelScale = 9.80665f / acc_1G / 10000.0f;
-	  	thrWindCorrScale = ((float)THROTTLE_WIND_CORRECTION) / acc_1G / acc_1G;
+	  	#ifdef THROTTLE_WIND_CORRECTION
+	  		thrWindCorrScale = ((float)THROTTLE_WIND_CORRECTION) / acc_1G / acc_1G;
+	  	#endif
 		  EstG.A[2] = accADC[2]; // G-vector not initiated properly at start, do it here
 	  	errI[2] = accADC[2] - (int16_t)acc_1G; 
 

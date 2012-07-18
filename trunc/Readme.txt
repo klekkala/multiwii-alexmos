@@ -4,6 +4,16 @@ after switching power to keep  ABSOLUTELY IMMOVABLE while calibrating gyroscope.
 Precise gyro = stable flight!
 
 
+New in r36:
+- RX reading tiny bug corrected: get time before sei() (otherwise RX signal jitter may appear)
+
+- Mix gyro data to camstab servo output for faster servo responce
+  (SERVO_TILT_ROLL_GYRO, SERVO_TILT_PITCH_GYRO in config.h)
+
+- Pullups enabled for sonar read pin. Now it is safe to disconnect sonar without re-configuring board.
+
+
+
 New in r34:
 - Beep buzzer when TX is off. It's replacement for Beeper Mode to help find lost quad, without separate switch (just turn you RX off).
   (FAILSAFE should be enabled in config.h)
