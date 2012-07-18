@@ -765,7 +765,8 @@ void loop () {
 	      // Increase P-term if sonar is used
 	      #if defined(SONAR) && defined(SONAR_BARO_PID_GAIN)
 	      	if(SONAR_USED) {
-	      		error+=  constrain(error * (SONAR_ERROR_MAX - SonarErrors) / SONAR_ERROR_MAX * SONAR_BARO_PID_GAIN, -150, 150);
+	      		int16_t tmp = error * (SONAR_ERROR_MAX - SonarErrors) / SONAR_ERROR_MAX * SONAR_BARO_PID_GAIN;
+	      		error+=  constrain(tmp, -150, 150);
 	      	}
 	      #endif
 	      
@@ -818,7 +819,8 @@ void loop () {
   for(axis=0;axis<3;axis++) {
     if (accMode == 1 && axis<2 ) { //LEVEL MODE
       // 50 degrees max inclination
-      errorAngle = constrain(2*rcCommand[axis] - GPS_angle[axis],-500,+500) - angle[axis] + accTrim[axis]; //16 bits is ok here
+      int16_t tmp = 2*rcCommand[axis] - GPS_angle[axis];
+      errorAngle = constrain(tmp,-500,+500) - angle[axis] + accTrim[axis]; //16 bits is ok here
       #ifdef OPTFLOW
       	errorAngle-= optflow_angle[axis];
       #endif

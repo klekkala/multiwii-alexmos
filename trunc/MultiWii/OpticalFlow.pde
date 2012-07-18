@@ -71,8 +71,8 @@ inline void	Optflow_update() {
 
 		// Apply I-term	unconditionally
 		for(axis=0;	axis<2;	axis++)	{
-			optflow_angle[axis]	=	constrain(optflow_angle[axis]	+	(int16_t)((int32_t)optflowErrorI[axis] * I8[PIDVEL]	/	5000),
-				-300,	300);
+			int16_t tmp = optflow_angle[axis]	+	(int16_t)((int32_t)optflowErrorI[axis] * I8[PIDVEL]	/	5000);
+			optflow_angle[axis]	=	constrain(tmp, -300,	300);
 		}
 
 		#ifdef OF_DEBUG
@@ -139,8 +139,10 @@ inline void	optflow_get_vel()	{
 
 /* Convert row data	to displacment (in mm*10 on	height 1m)	since	last call	*/
 inline void	optflow_get()	{
-	optflow_pos[1] = constrain((int32_t)sum_dx * scale,	-0x7FFF, 0x7FFF);
-	optflow_pos[0] = constrain((int32_t)sum_dy * scale,	-0x7FFF, 0x7FFF);
+	int32_t tmp = (int32_t)sum_dx * scale;
+	optflow_pos[1] = constrain(tmp,	-0x7FFF, 0x7FFF);
+	tmp = (int32_t)sum_dy * scale;
+	optflow_pos[0] = constrain(tmp,	-0x7FFF, 0x7FFF);
 
 	// clear accumulated displacement
 	sum_dx = 0;	sum_dy = 0;	
